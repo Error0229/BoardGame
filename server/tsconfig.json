@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "outDir": "dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "paths": {
+      "@kindred/shared": ["../shared/src/index.ts"]
+    }
+  },
+  "include": ["src"],
+  "ts-node": {
+    "paths": {
+      "@kindred/shared": ["../shared/src/index.ts"]
+    }
+  }
+}

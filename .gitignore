@@ -1,0 +1,25 @@
+# ── Dependencies ──────────────────────────────
+node_modules/
+
+# ── Build outputs ─────────────────────────────
+dist/
+build/
+
+# ── Environment ───────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Logs ──────────────────────────────────────
+*.log
+npm-debug.log*
+
+# ── OS / Editor ───────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+.claude
+CONTEXT.md
+
+# ── Assets（卡牌圖片等大型二進位檔） ───────────
+assets/
