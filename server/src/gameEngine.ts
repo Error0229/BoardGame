@@ -2,6 +2,7 @@ import {
   GameStateFull, GameStateClient, GamePhase,
   PlayerPrivate, SlotFull, SlotVisible,
   ConflictResult, Deployment, ClanId, CardDef, AllyCard, LocationDef,
+  PendingChoice,
 } from '@kindred/shared';
 import {
   LOCATIONS, CLAN_DEFS, CLAN_STARTERS, CLAN_DECKS,
@@ -32,6 +33,8 @@ export class GameEngine {
       lastConflictResults: [],
       winner: null,
       log: [],
+      pendingChoices: [],
+      resolvedChoices: {},
     };
   }
 
@@ -79,8 +82,18 @@ export class GameEngine {
   // ─── 遊戲流程 ───────────────────────────────
 
   startClanSelect(): void {
-    this.state.phase = 'CLAN_SELECT';
-    Object.values(this.state.players).forEach(p => (p.isReady = false));
+    const s = this.state;
+    s.phase = 'CLAN_SELECT';
+    Object.values(s.players).forEach(p => (p.isReady = false));
+
+    // 依人數決定使用的地點：3–4 人用 3 個，5–6 人用 4 個
+    const playerCount = Object.keys(s.players).length;
+    const locCount = playerCount >= 5 ? 4 : 3;
+    s.locations = LOCATIONS.slice(0, locCount - 1).concat(LOCATIONS.filter(l => l.isPrinces));
+    s.deployments = Object.fromEntries(s.locations.map(l => [l.id, []]));
+    s.withdrawChoices = Object.fromEntries(s.locations.map(l => [l.id, {}]));
+    s.locationAllies = Object.fromEntries(s.locations.map(l => [l.id, null]));
+
     this.log('請各玩家選擇氏族');
   }
 
@@ -193,7 +206,11 @@ export class GameEngine {
       }
     }
 
-    const deployLimit = [0, 2, 3, 4][s.round] ?? 4;
+    // 3 人特殊：第 1/2/3 回合各 3/4/5 次；其他：2/3/4 次
+    const is3p = Object.keys(s.players).length === 3;
+    const deployLimit = is3p
+      ? ([0, 3, 4, 5][s.round] ?? 5)
+      : ([0, 2, 3, 4][s.round] ?? 4);
     this.log(`── 第 ${s.round} / 3 回合開始 ──`);
 
     Object.values(s.players).forEach(p => {
@@ -257,18 +274,71 @@ export class GameEngine {
     }
 
     this.log(`${p.name} 在 ${this.locName(locationId)} ${faceDown ? '秘密' : ''}部署了一張牌${bloodTokens > 0 ? `（+${bloodTokens}💧）` : ''}`);
+
+    // ── PLANNING 被動觸發 ────────────────────────────────────────────
+
+    // GA06: On the Prowl — 對手在此地點出牌，GA06 擁有者 +1 血液代幣
+    const ga06Slot = s.deployments[locationId].find(sl =>
+      sl.cardId === 'GA06' && sl.playerId !== playerId && !sl.faceDown
+    );
+    if (ga06Slot) {
+      ga06Slot.bloodTokens += 1;
+      this.log(`${s.players[ga06Slot.playerId]?.name} 的正在狩獵：+1💧`);
+    }
+
+    // NO03: Eyes in the Dark — 對手在此地點出牌須面朝下，且 NO03 擁有者獲 +1 血液代幣
+    const no03Slot = s.deployments[locationId].find(sl =>
+      sl.cardId === 'NO03' && sl.playerId !== playerId && !sl.faceDown
+    );
+    if (no03Slot) {
+      s.deployments[locationId][s.deployments[locationId].length - 1].faceDown = true;
+      no03Slot.bloodTokens += 1;
+      this.log(`${s.players[no03Slot.playerId]?.name} 的暗中眼目：強制面朝下，+1💧`);
+    }
+
+    // BR03: Challenge — 對手在「不同」地點出牌，各失去 1 血液
+    Object.entries(s.deployments).forEach(([locId, slots]) => {
+      if (locId === locationId) return;
+      slots.forEach(sl => {
+        if (sl.cardId === 'BR03' && sl.playerId !== playerId && !sl.faceDown) {
+          if (p.blood > 0) {
+            p.blood -= 1;
+            this.log(`${p.name} 被 ${s.players[sl.playerId]?.name} 的挑戰宣言扣除 1💧`);
+          }
+        }
+      });
+    });
+
     return true;
   }
 
   // ─── Resolution ─────────────────────────────
 
   startWithdraw(): void {
-    this.state.phase = 'WITHDRAW';
-    Object.values(this.state.players).forEach(p => (p.isReady = false));
+    const s = this.state;
+    s.phase = 'WITHDRAW';
+    Object.values(s.players).forEach(p => (p.isReady = false));
+
+    // VE01: Master Plan — 規劃結束時，此地點無部署的對手失去 1 影響力
+    LOCATIONS.forEach(loc => {
+      const ve01Slot = s.deployments[loc.id].find(sl => sl.cardId === 'VE01' && !sl.faceDown);
+      if (!ve01Slot) return;
+      const owner = s.players[ve01Slot.playerId];
+      if (!owner) return;
+      const rivals = Object.values(s.players).filter(p => p.id !== ve01Slot.playerId);
+      rivals.forEach(r => {
+        const hasCard = s.deployments[loc.id].some(sl => sl.playerId === r.id);
+        if (!hasCard) {
+          r.influence = Math.max(0, r.influence - 1);
+          this.log(`${r.name} 因 ${owner.name} 的縝密計畫失去 1 影響力`);
+        }
+      });
+    });
+
     // Players with no deployments anywhere are auto-ready
-    Object.values(this.state.players).forEach(p => {
+    Object.values(s.players).forEach(p => {
       const hasAny = LOCATIONS.some(loc =>
-        this.state.deployments[loc.id].some(sl => sl.playerId === p.id)
+        s.deployments[loc.id].some(sl => sl.playerId === p.id)
       );
       if (!hasAny) p.isReady = true;
     });
@@ -312,17 +382,46 @@ export class GameEngine {
 
   resolveAllLocations(): ConflictResult[] {
     const s = this.state;
-    s.phase = 'CONFLICT';
+    s.lastConflictResults = []; // 清空，供 post-resolution choice 判斷用
     const results: ConflictResult[] = [];
 
     for (const loc of s.locations) {
       // Apply withdrawals
       const choices = s.withdrawChoices[loc.id];
       s.deployments[loc.id].forEach(slot => {
-        if (choices[slot.playerId]) {
+        if (!choices[slot.playerId]) return;
+        const p = s.players[slot.playerId];
+        if (!p) return;
+
+        // NO02: Cloak of Shadows — 撤退時，改將卡牌與血液移至 NO02 所在地點
+        const no02Loc = LOCATIONS.find(l =>
+          s.deployments[l.id].some(sl => sl.cardId === 'NO02' && sl.playerId === slot.playerId && !sl.faceDown)
+        );
+        if (no02Loc && no02Loc.id !== loc.id) {
           slot.withdrawn = true;
-          s.players[slot.playerId].blood += slot.bloodTokens;
+          const existing = s.deployments[no02Loc.id].find(sl => sl.playerId === p.id && sl.cardId === slot.cardId);
+          if (existing) existing.bloodTokens += slot.bloodTokens;
+          else s.deployments[no02Loc.id].push({ ...slot, withdrawn: false });
+          this.log(`${p.name} 的陰影披風：撤退牌移至 ${no02Loc.name}`);
+          return;
         }
+
+        // NO04: Feral Whispers — 撤退時，每張移動的牌在 NO04 地點獲得 +2 血液代幣
+        const no04Loc = LOCATIONS.find(l =>
+          s.deployments[l.id].some(sl => sl.cardId === 'NO04' && sl.playerId === slot.playerId && !sl.faceDown)
+        );
+        if (no04Loc && no04Loc.id !== loc.id) {
+          slot.withdrawn = true;
+          p.blood += slot.bloodTokens;
+          const no04Slot = s.deployments[no04Loc.id].find(sl => sl.playerId === p.id);
+          if (no04Slot) { no04Slot.bloodTokens += 2; }
+          else s.deployments[no04Loc.id].push({ playerId: p.id, cardId: '', faceDown: false, bloodTokens: 2, withdrawn: false, effectivePower: 0 });
+          this.log(`${p.name} 的野獸低語：撤退後 +2💧至 ${no04Loc.name}`);
+          return;
+        }
+
+        slot.withdrawn = true;
+        p.blood += slot.bloodTokens;
       });
 
       const result = this.resolveLocation(loc);
@@ -335,6 +434,34 @@ export class GameEngine {
     Object.values(s.players).forEach(p => this.checkFrenzy(p));
 
     return results;
+  }
+
+  /** 結算完成後，掃描需要勝者做選擇的效果（VE09）*/
+  setupPostResolutionChoices(): void {
+    const s = this.state;
+    let n = s.pendingChoices.length;
+
+    for (const result of s.lastConflictResults) {
+      const locId = result.locationId;
+      const active = s.deployments[locId]?.filter(sl=>!sl.withdrawn) ?? [];
+      for (const slot of active) {
+        const card = getCardById(slot.cardId);
+        if (!card || slot.faceDown) continue;
+        const owner = s.players[slot.playerId];
+        if (!owner) continue;
+
+        if (card.id === 'VE09' && result.winner && result.winner !== slot.playerId) {
+          const winner = s.players[result.winner];
+          if (!winner) continue;
+          const take = Math.min(winner.blood, 2);
+          s.pendingChoices.push(this.makeChoice(n++, result.winner,
+            `【Ventrue 狩獵】${owner.name} 的狩獵效果：你需選擇：`,
+            [{ key:'give_blood',     label_zh:`被偷取 ${take}💧` },
+             { key:'give_influence', label_zh:'給予 1 影響力' }],
+            card.id, locId, slot.playerId, owner.name));
+        }
+      }
+    }
   }
 
   private resolveLocation(loc: LocationDef): ConflictResult {
@@ -489,6 +616,11 @@ export class GameEngine {
         power = maxPrinted;
         break;
       }
+      case 'VE01': { // Master Plan: +1 per rival at this location
+        const rivalsHere = new Set(allActive.filter(sl => sl.playerId !== slot.playerId).map(sl => sl.playerId));
+        power += rivalsHere.size;
+        break;
+      }
       case 'VE08': // Ready: just 2 power
         break;
     }
@@ -505,6 +637,7 @@ export class GameEngine {
     active.forEach(slot => {
       const card = getCardById(slot.cardId);
       if (!card || card.type !== 'preparation') return;
+      if (slot.skipEffects) return; // VE03: 選擇跳過效果
       const p = s.players[slot.playerId]!;
       const rivals = Object.values(s.players).filter(x => x.id !== slot.playerId);
 
@@ -526,12 +659,17 @@ export class GameEngine {
           if (stolen > 0) { result.bloodEvents.push(`${p.name} 狼群之力：+${stolen}💧`); this.log(`${p.name} 的狼群之力奪取 ${stolen} 部署血液`); }
           break;
         }
-        case 'GA05': { // Fearless: swap pool ↔ deployed blood, +2 from bank
-          const old = slot.bloodTokens;
-          slot.bloodTokens = p.blood;
-          p.blood = old + 2;
-          result.bloodEvents.push(`${p.name} 無懼：交換血液`);
-          this.log(`${p.name} 的無懼：交換資源池(${p.blood-2})與部署血液，+2`);
+        case 'GA05': { // Fearless: 玩家選擇是否交換
+          const key = `GA05:${locationId}:${p.id}`;
+          if ((s.resolvedChoices[key] ?? 'swap') === 'swap') {
+            const old = slot.bloodTokens;
+            slot.bloodTokens = p.blood;
+            p.blood = old + 2;
+            result.bloodEvents.push(`${p.name} 無懼：交換血液`);
+            this.log(`${p.name} 的無懼：交換資源池(${p.blood-2})與部署血液，+2`);
+          } else {
+            result.bloodEvents.push(`${p.name} 無懼：選擇不交換`);
+          }
           break;
         }
         case 'GA08': { // Gangrel Ready: take 2 blood from bank to location
@@ -571,26 +709,37 @@ export class GameEngine {
           this.log(`${p.name} 的竊取生命力：+${gain} 血液`);
           break;
         }
-        case 'TR07': { // Arcane Drain: spend half, take half rivals' deployed
-          const cost = Math.floor(p.blood / 2);
-          if (cost > 0) {
-            p.blood -= cost;
-            let gained = 0;
-            active.filter(sl => sl.playerId !== p.id).forEach(sl => {
-              const take = Math.ceil(sl.bloodTokens / 2);
-              sl.bloodTokens -= take; gained += take;
-            });
-            p.blood += gained;
-            result.bloodEvents.push(`${p.name} 奧術汲取：-${cost}💧 +${gained}💧`);
-            this.log(`${p.name} 的奧術汲取：消耗${cost}，奪取${gained}`);
+        case 'TR07': { // Arcane Drain: 玩家選擇是否啟動
+          const key = `TR07:${locationId}:${p.id}`;
+          if (s.resolvedChoices[key] === 'pay') {
+            const cost = Math.floor(p.blood / 2);
+            if (cost > 0) {
+              p.blood -= cost;
+              let gained = 0;
+              active.filter(sl => sl.playerId !== p.id).forEach(sl => {
+                const take = Math.ceil(sl.bloodTokens / 2);
+                sl.bloodTokens -= take; gained += take;
+              });
+              p.blood += gained;
+              result.bloodEvents.push(`${p.name} 奧術汲取：-${cost}💧 +${gained}💧`);
+              this.log(`${p.name} 的奧術汲取：消耗${cost}，奪取${gained}`);
+            }
+          } else {
+            result.bloodEvents.push(`${p.name} 奧術汲取：選擇不啟動`);
           }
           break;
         }
-        case 'NO07': { // Vanish: steal 1 from each rival
-          let stolen = 0;
-          rivals.forEach(r => { if (r.blood > 0) { r.blood--; stolen++; } });
-          p.blood += stolen;
-          if (stolen > 0) { result.bloodEvents.push(`${p.name} 消失於影：+${stolen}💧`); }
+        case 'NO07': { // Vanish: 玩家選擇是否撤退+偷血
+          const key = `NO07:${locationId}:${p.id}`;
+          if ((s.resolvedChoices[key] ?? 'stay') === 'withdraw_steal') {
+            slot.withdrawn = true;
+            let stolen = 0;
+            rivals.forEach(r => { if (r.blood > 0) { r.blood--; stolen++; } });
+            p.blood += stolen;
+            if (stolen > 0) result.bloodEvents.push(`${p.name} 消失於影：撤退+偷 ${stolen}💧`);
+          } else {
+            result.bloodEvents.push(`${p.name} 消失於影：選擇不撤退`);
+          }
           break;
         }
         case 'VE06': { // Tyrant's Gaze: rivals lose 1 influence (simplified)
@@ -599,9 +748,21 @@ export class GameEngine {
           this.log(`${p.name} 的暴君凝視使每個對手失去 1 影響力`);
           break;
         }
-        case 'MA01': { // Mesmerize: plays opponent's remaining hand
-          // complex — notify only
-          result.bloodEvents.push(`${p.name} 催眠操控（需手動解算）`);
+        case 'MA01': { // Mesmerize: 選擇一名對手，將其手牌打至此地點
+          const key = `MA01:${locationId}:${p.id}`;
+          const targetId = s.resolvedChoices[key];
+          const target = targetId ? s.players[targetId] : null;
+          if (target && target.hand.length > 0) {
+            [...target.hand].forEach(c => {
+              s.deployments[locationId].push({ playerId: target.id, cardId: c.id, faceDown: false, bloodTokens: 0, withdrawn: false, effectivePower: 0 });
+              active.push(s.deployments[locationId][s.deployments[locationId].length-1]);
+            });
+            target.hand = []; target.handCount = 0;
+            result.bloodEvents.push(`${p.name} 催眠操控：${target.name} 的手牌全部打至此地點`);
+            this.log(`${p.name} 催眠操控 ${target.name}，手牌共 ${target.handCount} 張`);
+          } else {
+            result.bloodEvents.push(`${p.name} 催眠操控：未選擇目標或目標無手牌`);
+          }
           break;
         }
         case 'MA03': { // Madness Network: play rest of hand here
@@ -616,6 +777,31 @@ export class GameEngine {
           p.hand = [];
           p.handCount = 0;
           result.bloodEvents.push(`${p.name} 瘋狂網絡：手牌全入`);
+          break;
+        }
+        case 'NO05': { // Backstab: 在此地點放置最多 3 血液代幣
+          slot.bloodTokens += 3;
+          result.bloodEvents.push(`${p.name} 背刺：+3💧`);
+          this.log(`${p.name} 的背刺：+3 血液代幣至 ${this.locName(locationId)}`);
+          break;
+        }
+        case 'TO07': { // Friends in High Places: 每同盟牌 +1 血液代幣
+          const add = p.alliance.length;
+          if (add > 0) {
+            slot.bloodTokens += add;
+            result.bloodEvents.push(`${p.name} 上層友人：+${add}💧`);
+            this.log(`${p.name} 的上層友人：+${add} 血液代幣`);
+          }
+          break;
+        }
+        case 'TO08': { // Ready: 抽一張受害者牌入同盟
+          if (s.victimDeck.length > 0) {
+            const v = s.victimDeck.shift()!;
+            p.alliance.push(v);
+            p.allianceCount++;
+            result.bloodEvents.push(`${p.name} 備戰：獲得 ${v.name}`);
+            this.log(`${p.name} 的備戰：獲得受害者牌 ${v.name}`);
+          }
           break;
         }
         case 'MA05': { // Chaos: take back cards, steal 1 per card
@@ -656,21 +842,32 @@ export class GameEngine {
           this.log(`${p.name} 的外交手腕使最高權力牌歸零`);
           break;
         }
-        case 'VE03': { // Curfew: rivals skip prep/aftermath OR lose 3 blood (simplified: steal 3)
-          rivals.forEach(r => {
-            const take = Math.min(r.blood, 3);
-            r.blood -= take; p.blood += take;
-          });
-          result.bloodEvents.push(`${p.name} 宵禁令：偷取對手3💧`);
-          this.log(`${p.name} 的宵禁令從每個對手偷取 3 血液`);
+        case 'VE03': { // Curfew: 效果已在 setupPendingChoices 前處理
+          result.bloodEvents.push(`${p.name} 宵禁令：已要求對手選擇`);
           break;
         }
-        case 'VE05': { // Mass Manipulation: rivals must withdraw or give 2 blood (simplified: steal 2)
-          rivals.forEach(r => {
-            const take = Math.min(r.blood, 2);
-            r.blood -= take; p.blood += take;
-          });
-          result.bloodEvents.push(`${p.name} 大規模操控：偷取對手2💧`);
+        case 'VE05': { // Mass Manipulation: 效果已在 setupPendingChoices 前處理
+          result.bloodEvents.push(`${p.name} 大規模操控：已要求對手選擇`);
+          break;
+        }
+        case 'TR06': { // Retaliation: 你在此地點損失/消耗血液時，對手同等失血
+          // 以己方部署血液代幣作為「已消耗血液」的近似值
+          const spent = slot.bloodTokens;
+          if (spent > 0) {
+            rivals.forEach(r => { r.blood = Math.max(0, r.blood - spent); });
+            result.bloodEvents.push(`${p.name} 報復：對手各-${spent}💧`);
+            this.log(`${p.name} 的報復：對手各失去 ${spent} 血液`);
+          }
+          break;
+        }
+        case 'TR08': { // Ready: 若進入狂暴，可翻面朝下代替消耗同盟牌 → 此處給 +1 血液並標記
+          // 在衝突階段預先補血，使其不易進入狂暴
+          if (p.blood === 0) {
+            p.blood += 1;
+            slot.faceDown = true;
+            result.bloodEvents.push(`${p.name} 備戰(TR08)：翻面朝下+1💧`);
+            this.log(`${p.name} 的備戰(TR08) 啟動：翻面並補充 1 血液`);
+          }
           break;
         }
         case 'GA02': { // Wolf Companion: rivals' printed power halved
@@ -691,6 +888,7 @@ export class GameEngine {
     active.forEach(slot => {
       const card = getCardById(slot.cardId);
       if (!card || card.type !== 'aftermath') return;
+      if (slot.skipEffects) return; // VE03: 選擇跳過效果
       const p = s.players[slot.playerId]!;
       const rivals = Object.values(s.players).filter(x => x.id !== slot.playerId);
       const isWinner = result.winner === slot.playerId;
@@ -716,11 +914,20 @@ export class GameEngine {
           }
           break;
         }
-        case 'VE09': { // Hunt: winner must give 2 blood or 1 influence
+        case 'VE09': { // Hunt: 勝者選擇被偷2血或給1影響力
           if (result.winner && result.winner !== p.id) {
             const wp = s.players[result.winner]!;
-            if (wp.blood >= 2) { wp.blood -= 2; p.blood += 2; result.bloodEvents.push(`${p.name} 狩獵(Ventrue)：+2💧`); }
-            else { wp.influence = Math.max(0, wp.influence - 1); p.influence += 1; result.bloodEvents.push(`${p.name} 狩獵(Ventrue)：+1⭐`); }
+            const key = `VE09:${locationId}:${result.winner}`; // 勝者做選擇
+            const choice = s.resolvedChoices[key];
+            if (choice === 'give_influence') {
+              wp.influence = Math.max(0, wp.influence - 1); p.influence += 1;
+              result.bloodEvents.push(`${wp.name} 選擇給予 1 影響力（Ventrue 狩獵）`);
+            } else {
+              // 預設：失去2血
+              const take = Math.min(wp.blood, 2);
+              wp.blood -= take; p.blood += take;
+              result.bloodEvents.push(`${p.name} 狩獵(Ventrue)：從 ${wp.name} 偷 ${take}💧`);
+            }
           }
           break;
         }
@@ -754,17 +961,18 @@ export class GameEngine {
           this.log(`${p.name} 的融入大地回收部署血液`);
           break;
         }
-        case 'GA07': { // Mist Form: move half deployed blood to another location
+        case 'GA07': { // Mist Form: 玩家選擇目標地點
           const move = Math.ceil(slot.bloodTokens / 2);
           if (move > 0) {
-            slot.bloodTokens -= move;
-            // Move to Prince's Haven or first other location
-            const otherLoc = LOCATIONS.find(l => l.id !== locationId);
-            if (otherLoc) {
-              const existingSlot = s.deployments[otherLoc.id].find(sl => sl.playerId === p.id);
+            const key = `GA07:${locationId}:${p.id}`;
+            const targetLocId = s.resolvedChoices[key] ?? LOCATIONS.find(l=>l.id!==locationId)?.id;
+            const targetLoc = targetLocId ? LOCATIONS.find(l=>l.id===targetLocId) : null;
+            if (targetLoc) {
+              slot.bloodTokens -= move;
+              const existingSlot = s.deployments[targetLoc.id]?.find(sl=>sl.playerId===p.id);
               if (existingSlot) existingSlot.bloodTokens += move;
-              else s.deployments[otherLoc.id].push({ playerId: p.id, cardId: '', faceDown: false, bloodTokens: move, withdrawn: false, effectivePower: 0 });
-              result.bloodEvents.push(`${p.name} 迷霧型態：移${move}💧至${otherLoc.name}`);
+              else s.deployments[targetLoc.id]?.push({ playerId:p.id, cardId:'', faceDown:false, bloodTokens:move, withdrawn:false, effectivePower:0 });
+              result.bloodEvents.push(`${p.name} 迷霧型態：移 ${move}💧 至 ${targetLoc.name}`);
             }
           }
           break;
@@ -788,20 +996,125 @@ export class GameEngine {
           }
           break;
         }
-        case 'NO01': { // Unseen Passage: move card to Prince's Haven
-          result.bloodEvents.push(`${p.name} 隱形通道（移至王子避難所，手動處理）`);
-          break;
-        }
-        case 'TR05': { // Cauldron of Blood: spend half pool → rivals lose 4
-          const cost = Math.floor(p.blood / 2);
-          if (cost > 0) {
-            p.blood -= cost;
-            rivals.forEach(r => { r.blood = Math.max(0, r.blood - 4); });
-            result.bloodEvents.push(`${p.name} 血液坩堝：-${cost}💧，對手-4💧`);
-            this.log(`${p.name} 的血液坩堝消耗 ${cost}，使每個對手失去 4 血液`);
+        case 'NO01': { // Unseen Passage: 後果階段移至王子避難所
+          const haven = LOCATIONS.find(l => l.isPrinces);
+          if (haven && locationId !== haven.id) {
+            // 從原地點移除，加入 haven
+            const idx = s.deployments[locationId].indexOf(slot);
+            if (idx !== -1) s.deployments[locationId].splice(idx, 1);
+            s.deployments[haven.id].push({ ...slot, withdrawn: false });
+            result.bloodEvents.push(`${p.name} 隱形通道：移至 ${haven.name}`);
+            this.log(`${p.name} 的隱形通道：牌移至 ${haven.name}`);
           }
           break;
         }
+        case 'NO06': { // One Step Ahead: 翻牌後，對手每張面朝下牌需支付 2 血液或翻面
+          // 簡化：對手每張面朝下牌失去 2 血液（相當於選擇不翻面而付費）
+          active.filter(sl => sl.playerId !== p.id && sl.faceDown && !sl.withdrawn).forEach(sl => {
+            const rival = s.players[sl.playerId];
+            if (!rival) return;
+            const cost = Math.min(rival.blood, 2);
+            rival.blood -= cost;
+            if (cost < 2) sl.faceDown = false; // 付不起則強制翻面
+            result.bloodEvents.push(`${rival.name} 被一步超前：-${cost}💧`);
+          });
+          this.log(`${p.name} 的一步超前：對手面朝下牌各扣 2 血液`);
+          break;
+        }
+        case 'MA02': { // Auction of Blood: 秘密競標，最低者翻牌，血液留在此地點
+          // 簡化：所有玩家中血液最少者失去 1 血液並翻轉一張面朝下牌；
+          // 其他人失去 1 血液至此地點血液代幣池
+          const presentPlayerIds = [...new Set(active.map(sl => sl.playerId))];
+          if (presentPlayerIds.length < 2) break;
+          const sorted = presentPlayerIds
+            .map(pid => ({ pid, blood: s.players[pid]?.blood ?? 0 }))
+            .sort((a, b) => a.blood - b.blood);
+          const loser = s.players[sorted[0].pid];
+          if (loser) {
+            const fdSlot = active.find(sl => sl.playerId === loser.id && sl.faceDown);
+            if (fdSlot) { fdSlot.faceDown = false; result.bloodEvents.push(`${loser.name} 血液競標失敗：翻牌`); }
+            loser.blood = Math.max(0, loser.blood - 1);
+          }
+          sorted.slice(1).forEach(({ pid }) => {
+            const player = s.players[pid];
+            if (player && player.blood > 0) { player.blood--; slot.bloodTokens++; }
+          });
+          this.log(`${p.name} 的血液拍賣結算`);
+          break;
+        }
+        case 'MA06': { // Malkav's Bane: 翻牌後抽頂牌至此地點
+          if (p.deck.length > 0) {
+            const drawn = p.deck.shift()!;
+            s.deployments[locationId].push({ playerId: p.id, cardId: drawn.id, faceDown: false, bloodTokens: 0, withdrawn: false, effectivePower: 0 });
+            result.bloodEvents.push(`${p.name} 馬爾卡夫詛咒：抽 ${drawn.name_zh} 至此`);
+            this.log(`${p.name} 的馬爾卡夫詛咒抽出 ${drawn.name_zh}`);
+          }
+          break;
+        }
+        case 'VE07': { // Forestall: 玩家選擇目標對手牌
+          const key = `VE07:${locationId}:${p.id}`;
+          const target = s.resolvedChoices[key]; // format: "rivalPlayerId:cardId"
+          if (target) {
+            const [, tCardId] = target.split(':');
+            const tCard = getCardById(tCardId);
+            if (tCard && tCard.power > 0) {
+              p.blood += tCard.power;
+              result.bloodEvents.push(`${p.name} 先發制人：目標 ${tCard.name_zh}，+${tCard.power}💧`);
+              this.log(`${p.name} 的先發制人選擇 ${tCard.name_zh}，獲得 ${tCard.power} 血液`);
+            }
+          } else {
+            // fallback: highest
+            const maxPrint = Math.max(0, ...active.filter(sl=>sl.playerId!==p.id).map(sl=>getCardById(sl.cardId)?.power??0));
+            if (maxPrint > 0) { p.blood += maxPrint; result.bloodEvents.push(`${p.name} 先發制人：+${maxPrint}💧`); }
+          }
+          break;
+        }
+        case 'TR04': { // Dark Pact: 失血/消耗血液重定向至此地點
+          // 簡化：後果階段，將對手在此地點的部署血液代幣各奪取一半至此牌
+          let gained = 0;
+          active.filter(sl => sl.playerId !== p.id).forEach(sl => {
+            const take = Math.ceil(sl.bloodTokens / 2);
+            sl.bloodTokens -= take;
+            gained += take;
+          });
+          slot.bloodTokens += gained;
+          if (gained > 0) result.bloodEvents.push(`${p.name} 黑暗契約：+${gained}💧`);
+          this.log(`${p.name} 的黑暗契約：吸收 ${gained} 部署血液`);
+          break;
+        }
+        case 'TR05': { // Cauldron of Blood: 玩家選擇是否啟動
+          const key = `TR05:${locationId}:${p.id}`;
+          if (s.resolvedChoices[key] === 'pay') {
+            const cost = Math.floor(p.blood / 2);
+            if (cost > 0) {
+              p.blood -= cost;
+              rivals.forEach(r => { r.blood = Math.max(0, r.blood - 4); });
+              result.bloodEvents.push(`${p.name} 血液坩堝：-${cost}💧，對手-4💧`);
+              this.log(`${p.name} 的血液坩堝消耗 ${cost}，使每個對手失去 4 血液`);
+            }
+          } else {
+            result.bloodEvents.push(`${p.name} 血液坩堝：選擇不啟動`);
+          }
+          break;
+        }
+      }
+    });
+
+    // TO06: Submission — 此地點擁有者免疫所有失血/被偷血效果
+    // 在所有 aftermath 效果結算後，以快照比較恢復被扣除的血液
+    active.forEach(slot => {
+      if (slot.cardId !== 'TO06' || slot.faceDown || slot.withdrawn) return;
+      const p = s.players[slot.playerId];
+      if (!p) return;
+      // 記錄血液快照已在 applyPreparation 前，此處採保守補償：
+      // TO06 擁有者在此地點不應受任何 Lose/Steal blood 影響 —
+      // 簡化：確保其血液不低於本回合開始前（result.bloodEvents 中有針對他的事件則補回）
+      const targetEvents = result.bloodEvents.filter(e => e.includes(p.name) && (e.includes('💧') || e.includes('失去')));
+      if (targetEvents.length > 0) {
+        // 估算失去的血液：以事件計數補回 1 血液（保守補償）
+        p.blood += targetEvents.length;
+        result.bloodEvents.push(`${p.name} 服從免疫：+${targetEvents.length}💧`);
+        this.log(`${p.name} 的服從免疫生效`);
       }
     });
   }
@@ -833,10 +1146,20 @@ export class GameEngine {
 
   private checkFrenzy(player: PlayerPrivate): void {
     if (player.blood > 0) return;
-    const causers = Object.values(this.state.players).filter(p => p.id !== player.id);
+    const s = this.state;
+    const causers = Object.values(s.players).filter(p => p.id !== player.id);
     if (causers.length > 0) {
       causers[0].influence += 1;
       this.log(`${player.name} 進入狂暴！${causers[0].name} 獲得 +1 影響力`);
+
+      // BR08: Ready — 若該玩家有 BR08 面朝上，額外獲得 +1 影響力
+      const hasBR08 = Object.values(s.deployments).some(slots =>
+        slots.some(sl => sl.playerId === causers[0].id && sl.cardId === 'BR08' && !sl.faceDown)
+      );
+      if (hasBR08) {
+        causers[0].influence += 1;
+        this.log(`${causers[0].name} 的備戰(BR08)：額外 +1 影響力`);
+      }
     }
     // Drain random alliance card
     if (player.alliance.length > 0) {
@@ -911,6 +1234,236 @@ export class GameEngine {
 
   // ─── 狀態過濾 ────────────────────────────────
 
+  // ─── Pending Choice 機制 ──────────────────────
+
+  private makeChoice(id: number, playerId: string, prompt: string, options: {key:string;label_zh:string}[], cardId: string, locId: string, sourceId: string, sourceName: string): PendingChoice {
+    const choiceKey = `${cardId}:${locId}:${playerId}`;
+    return { id: `choice_${id}`, playerId, prompt_zh: prompt, options, choiceKey,
+      context: { cardId, locationId: locId, sourcePlayerId: sourceId, sourceName } };
+  }
+
+  /** 在 REVELATION 前掃描需要玩家選擇的卡牌，建立 pendingChoices */
+  setupPendingChoices(): void {
+    const s = this.state;
+    s.pendingChoices = [];
+    s.resolvedChoices = {};
+    let n = 0;
+
+    for (const [locId, slots] of Object.entries(s.deployments)) {
+      const active = slots.filter(sl => !sl.withdrawn && !sl.faceDown);
+      const allAtLoc = slots.filter(sl => !sl.withdrawn); // include facedown
+
+      for (const slot of active) {
+        const card = getCardById(slot.cardId);
+        if (!card) continue;
+        const owner = s.players[slot.playerId];
+        if (!owner) continue;
+        const rivals = Object.values(s.players).filter(p => p.id !== slot.playerId);
+        const rivalsHere = [...new Set(allAtLoc.filter(sl => sl.playerId !== slot.playerId).map(sl => sl.playerId))];
+
+        switch (card.id) {
+
+          // ── 對手選擇 ──────────────────────────────────────────────
+          case 'VE03': // 宵禁令：每個對手選擇跳過準備/後果 或 失去3血液
+            for (const rival of rivals)
+              s.pendingChoices.push(this.makeChoice(n++, rival.id,
+                `【宵禁令】${owner.name} 迫使你選擇：`,
+                [{ key:'skip_effects', label_zh:'跳過此地點的準備與後果效果' },
+                 { key:'lose_blood',   label_zh:'失去 3 點血液' }],
+                card.id, locId, slot.playerId, owner.name));
+            break;
+
+          case 'VE05': // 大規模操控：在此地點的對手選擇撤退 或 失去2血液
+            for (const rivalId of rivalsHere) {
+              const rival = s.players[rivalId]; if (!rival) continue;
+              s.pendingChoices.push(this.makeChoice(n++, rivalId,
+                `【大規模操控】${owner.name} 迫使你選擇：`,
+                [{ key:'withdraw',   label_zh:'撤退（從此地點撤回你的牌）' },
+                 { key:'lose_blood', label_zh:'失去 2 點血液' }],
+                card.id, locId, slot.playerId, owner.name));
+            }
+            break;
+
+          case 'VE06': // 暴君凝視：每個對手選擇「移動一半部署血液至持牌者」或「失去1影響力」
+            for (const rivalId of rivalsHere) {
+              const rival = s.players[rivalId]; if (!rival) continue;
+              const half = Math.ceil(allAtLoc.filter(sl=>sl.playerId===rivalId).reduce((s,sl)=>s+sl.bloodTokens,0)/2);
+              s.pendingChoices.push(this.makeChoice(n++, rivalId,
+                `【暴君凝視】${owner.name} 迫使你選擇：`,
+                [{ key:'move_blood',     label_zh:`將你在此地點的一半部署血液（${half}💧）移至 ${owner.name} 的位置` },
+                 { key:'lose_influence', label_zh:'失去 1 點影響力' }],
+                card.id, locId, slot.playerId, owner.name));
+            }
+            break;
+
+          case 'NO06': // 領先一步：每個對手對自己每張面朝下的牌選擇翻面（付2血）或保持
+            for (const rivalId of rivalsHere) {
+              const rival = s.players[rivalId]; if (!rival) continue;
+              const fdCount = slots.filter(sl=>sl.playerId===rivalId && sl.faceDown && !sl.withdrawn).length;
+              if (fdCount === 0) continue;
+              s.pendingChoices.push(this.makeChoice(n++, rivalId,
+                `【領先一步】${owner.name} 要求你對 ${fdCount} 張面朝下的牌選擇：`,
+                [{ key:'flip_all',  label_zh:`全部翻面（失去 ${fdCount*2} 點血液）` },
+                 { key:'keep_down', label_zh:'保持面朝下' }],
+                card.id, locId, slot.playerId, owner.name));
+            }
+            break;
+
+          // ── 持牌者選擇 ──────────────────────────────────────────
+          case 'GA05': // 無懼：可以選擇是否交換部署血液與資源池
+            s.pendingChoices.push(this.makeChoice(n++, slot.playerId,
+              `【無懼】你可以將此地點的部署血液與你的資源池互換，並額外獲得2血液：`,
+              [{ key:'swap',    label_zh:`交換（部署${slot.bloodTokens}💧 ↔ 池${owner.blood}💧，+2💧）` },
+               { key:'no_swap', label_zh:'不交換' }],
+              card.id, locId, slot.playerId, owner.name));
+            break;
+
+          case 'GA07': // 迷霧型態：選擇要移動部署血液的目標地點
+            if (slot.bloodTokens > 0) {
+              const move = Math.ceil(slot.bloodTokens / 2);
+              const otherLocs = s.locations.filter(l => l.id !== locId);
+              s.pendingChoices.push(this.makeChoice(n++, slot.playerId,
+                `【迷霧型態】選擇將 ${move}💧 移至哪個地點：`,
+                otherLocs.map(l => ({ key: l.id, label_zh: l.name })),
+                card.id, locId, slot.playerId, owner.name));
+            }
+            break;
+
+          case 'TR05': // 血液坩堝：可選擇是否消耗一半資源池使對手失去4血
+            if (owner.blood > 0) {
+              const cost = Math.floor(owner.blood / 2);
+              s.pendingChoices.push(this.makeChoice(n++, slot.playerId,
+                `【血液坩堝】消耗 ${cost}💧 使每個對手失去 4💧？`,
+                [{ key:'pay',    label_zh:`消耗 ${cost}💧，讓每個對手失去 4💧` },
+                 { key:'no_pay', label_zh:'不啟動' }],
+                card.id, locId, slot.playerId, owner.name));
+            }
+            break;
+
+          case 'TR07': // 奧術汲取：可選擇是否消耗一半資源池奪取對手部署血液
+            if (owner.blood > 0) {
+              const cost = Math.floor(owner.blood / 2);
+              s.pendingChoices.push(this.makeChoice(n++, slot.playerId,
+                `【奧術汲取】消耗 ${cost}💧 奪取對手在此地點一半的部署血液？`,
+                [{ key:'pay',    label_zh:`消耗 ${cost}💧 啟動` },
+                 { key:'no_pay', label_zh:'不啟動' }],
+                card.id, locId, slot.playerId, owner.name));
+            }
+            break;
+
+          case 'NO07': // 消失於影：可選擇撤退並從對手各偷1血
+            s.pendingChoices.push(this.makeChoice(n++, slot.playerId,
+              `【消失於影】你可以從此地點撤退，並從每個對手偷取 1💧：`,
+              [{ key:'withdraw_steal', label_zh:'撤退並從每個對手偷取 1💧' },
+               { key:'stay',          label_zh:'留在此地點（不偷血）' }],
+              card.id, locId, slot.playerId, owner.name));
+            break;
+
+          case 'MA01': // 催眠操控：選擇一名對手，將其手牌全部打到此地點
+            if (rivals.length > 0) {
+              s.pendingChoices.push(this.makeChoice(n++, slot.playerId,
+                `【催眠操控】選擇一名對手，將其手牌全數打至此地點：`,
+                rivals.filter(r=>r.hand.length>0).map(r => ({ key: r.id, label_zh: `${r.name}（手牌 ${r.hand.length} 張）` })),
+                card.id, locId, slot.playerId, owner.name));
+            }
+            break;
+
+          case 'VE07': { // 先發制人：選擇一名對手的面朝上牌，免疫其效果並獲得其印刷戰力血液
+            const rivalFaceUpCards: {key:string;label_zh:string}[] = [];
+            active.filter(sl=>sl.playerId!==slot.playerId).forEach(sl=>{
+              const c = getCardById(sl.cardId); if(!c) return;
+              const rp = s.players[sl.playerId];
+              rivalFaceUpCards.push({ key:`${sl.playerId}:${sl.cardId}`, label_zh:`${rp?.name ?? sl.playerId} 的 ${c.name_zh}（戰力 ${c.power}，獲得 ${c.power}💧）` });
+            });
+            if (rivalFaceUpCards.length > 0)
+              s.pendingChoices.push(this.makeChoice(n++, slot.playerId,
+                `【先發制人】選擇免疫並獲得血液的對手牌：`,
+                rivalFaceUpCards, card.id, locId, slot.playerId, owner.name));
+            break;
+          }
+
+        }
+      }
+    }
+  }
+
+  /** 玩家響應選擇：存入 resolvedChoices，並對即時生效的選項立即套用 */
+  applyPendingChoice(choiceId: string, option: string): void {
+    const s = this.state;
+    const idx = s.pendingChoices.findIndex(c => c.id === choiceId);
+    if (idx === -1) return;
+    const choice = s.pendingChoices[idx];
+    s.pendingChoices.splice(idx, 1);
+
+    // 記錄供 resolution 使用
+    s.resolvedChoices[choice.choiceKey] = option;
+
+    const player = s.players[choice.playerId];
+    if (!player) return;
+    const locId = choice.context.locationId;
+
+    switch (choice.context.cardId) {
+
+      case 'VE03':
+        if (option === 'lose_blood') {
+          player.blood = Math.max(0, player.blood - 3);
+          this.log(`${player.name} 選擇失去 3💧（宵禁令）`);
+        } else {
+          s.deployments[locId]?.filter(sl=>sl.playerId===choice.playerId).forEach(sl=>{ sl.skipEffects = true; });
+          this.log(`${player.name} 選擇跳過此地點準備/後果效果（宵禁令）`);
+        }
+        break;
+
+      case 'VE05':
+        if (option === 'withdraw') {
+          s.deployments[locId]?.filter(sl=>sl.playerId===choice.playerId&&!sl.withdrawn).forEach(sl=>{ sl.withdrawn=true; });
+          this.log(`${player.name} 選擇撤退（大規模操控）`);
+        } else {
+          player.blood = Math.max(0, player.blood - 2);
+          this.log(`${player.name} 選擇失去 2💧（大規模操控）`);
+        }
+        break;
+
+      case 'VE06':
+        if (option === 'move_blood') {
+          const srcSlots = s.deployments[locId]?.filter(sl=>sl.playerId===choice.playerId) ?? [];
+          const totalTokens = srcSlots.reduce((sum,sl)=>sum+sl.bloodTokens,0);
+          const move = Math.ceil(totalTokens/2);
+          let moved = 0;
+          for (const sl of srcSlots) {
+            const take = Math.min(sl.bloodTokens, move-moved);
+            sl.bloodTokens -= take; moved += take;
+            if (moved >= move) break;
+          }
+          // 找持牌者在此地點的 slot 加血
+          const ownerSlot = s.deployments[locId]?.find(sl=>sl.playerId===choice.context.sourcePlayerId);
+          if (ownerSlot) ownerSlot.bloodTokens += moved;
+          this.log(`${player.name} 移動 ${moved}💧 至 ${choice.context.sourceName}（暴君凝視）`);
+        } else {
+          player.influence = Math.max(0, player.influence - 1);
+          this.log(`${player.name} 失去 1 影響力（暴君凝視）`);
+        }
+        break;
+
+      case 'NO06':
+        if (option === 'flip_all') {
+          const fdSlots = s.deployments[locId]?.filter(sl=>sl.playerId===choice.playerId&&sl.faceDown&&!sl.withdrawn) ?? [];
+          const cost = fdSlots.length * 2;
+          player.blood = Math.max(0, player.blood - cost);
+          fdSlots.forEach(sl=>{ sl.faceDown = false; });
+          this.log(`${player.name} 付 ${cost}💧 翻面所有牌（領先一步）`);
+        } else {
+          this.log(`${player.name} 選擇保持牌面朝下（領先一步）`);
+        }
+        break;
+
+      default:
+        // GA05, GA07, TR05, TR07, NO07, MA01, VE07 — 在 resolution 時由 applyPreparation/applyAftermath 讀取
+        this.log(`${player.name} 選擇：${option}（${choice.context.cardId}）`);
+        break;
+    }
+  }
+
   getClientState(forPlayerId: string): GameStateClient {
     const s = this.state;
     const me = s.players[forPlayerId];
@@ -962,6 +1515,7 @@ export class GameEngine {
       lastConflictResults: s.lastConflictResults,
       winner: s.winner,
       log: s.log.slice(-40),
+      myPendingChoice: s.pendingChoices.find(c => c.playerId === forPlayerId) ?? null,
     };
   }
 

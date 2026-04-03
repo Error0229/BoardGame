@@ -69,6 +69,16 @@ export interface SlotFull {
   bloodTokens: number;
   withdrawn: boolean;
   effectivePower: number;
+  skipEffects?: boolean;  // VE03: rival chose to skip prep/aftermath
+}
+
+export interface PendingChoice {
+  id: string;
+  playerId: string;
+  prompt_zh: string;
+  options: { key: string; label_zh: string }[];
+  context: { cardId: string; locationId: string; sourcePlayerId: string; sourceName: string };
+  choiceKey: string; // 用於 resolvedChoices 查詢：`${cardId}:${locationId}:${playerId}`
 }
 
 export interface SlotVisible {
@@ -133,6 +143,8 @@ export interface GameStateFull {
   lastConflictResults: ConflictResult[];
   winner: string | null;
   log: string[];
+  pendingChoices: PendingChoice[];
+  resolvedChoices: Record<string, string>; // choiceKey → option
 }
 
 // ─── Client 收到的狀態 ────────────────────────
@@ -155,6 +167,7 @@ export interface GameStateClient {
   lastConflictResults: ConflictResult[];
   winner: string | null;
   log: string[];
+  myPendingChoice: PendingChoice | null;
 }
 
 // ─── Socket 事件 ──────────────────────────────
@@ -168,6 +181,8 @@ export interface ClientToServer {
   submitDeployment: (deployment: Deployment | { skip: true }) => void;
   submitWithdraw: (payload: { locationId: string; withdraw: boolean }) => void;
   drainAlly: (allyId: string) => void;               // 汲取同盟牌
+  readyAdvance: () => void;                          // REVELATION/ROUND_END 確認繼續
+  respondChoice: (payload: { choiceId: string; option: string }) => void;
   chat: (msg: string) => void;
 }
 

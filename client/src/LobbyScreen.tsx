@@ -1,0 +1,115 @@
+import { useState } from 'react'
+import type { GameStateClient } from '@kindred/shared'
+import socket from './socket'
+import './LobbyScreen.css'
+
+interface Props {
+  myId: string
+  gameState: GameStateClient | null
+  onError: (msg: string) => void
+}
+
+export default function LobbyScreen({ myId, gameState, onError }: Props) {
+  const [name, setName] = useState('')
+  const [joinCode, setJoinCode] = useState('')
+  const [view, setView] = useState<'home' | 'join'>('home')
+
+  const inRoom = gameState !== null
+  const players = inRoom ? Object.values(gameState.players) : []
+  const isHost = inRoom && players[0]?.id === myId
+  const canStart = players.length >= 3
+
+  function handleCreate() {
+    const n = name.trim()
+    if (!n) { onError('請輸入名字'); return }
+    socket.emit('createRoom', { name: n })
+  }
+
+  function handleJoin() {
+    const n = name.trim()
+    const c = joinCode.trim().toUpperCase()
+    if (!n) { onError('請輸入名字'); return }
+    if (c.length !== 4) { onError('房間代碼為 4 碼'); return }
+    socket.emit('joinRoom', { code: c, name: n })
+  }
+
+  function handleStart() {
+    socket.emit('readyStart')
+  }
+
+  if (inRoom) {
+    return (
+      <div className="lobby-room">
+        <div className="lobby-room__header">
+          <span className="lobby-room__label">房間代碼</span>
+          <span className="lobby-room__code">{gameState.roomCode}</span>
+        </div>
+
+        <div className="lobby-room__players">
+          <div className="lobby-room__players-title">玩家 {players.length}/6</div>
+          {players.map((p, i) => (
+            <div key={p.id} className="lobby-room__player">
+              <span className="lobby-room__player-name">
+                {p.name}
+                {p.id === myId && ' (你)'}
+              </span>
+              {i === 0 && <span className="lobby-room__host-badge">房主</span>}
+            </div>
+          ))}
+        </div>
+
+        {!canStart && (
+          <div className="lobby-room__hint">
+            等待更多玩家加入…（至少需要 3 人）
+          </div>
+        )}
+
+        {isHost && (
+          <button className="btn-primary" onClick={handleStart} disabled={!canStart}>
+            開始遊戲
+          </button>
+        )}
+
+        {!isHost && canStart && (
+          <div className="lobby-room__hint">等待房主開始遊戲…</div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="lobby-entry">
+      <div className="lobby-entry__name-row">
+        <input
+          placeholder="輸入你的名字"
+          value={name}
+          maxLength={16}
+          onChange={e => setName(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && (view === 'home' ? handleCreate() : handleJoin())}
+        />
+      </div>
+
+      {view === 'home' && (
+        <div className="lobby-entry__actions">
+          <button className="btn-primary" onClick={handleCreate}>建立房間</button>
+          <button className="btn-ghost" onClick={() => setView('join')}>加入房間</button>
+        </div>
+      )}
+
+      {view === 'join' && (
+        <div className="lobby-entry__actions">
+          <input
+            placeholder="房間代碼（4碼）"
+            value={joinCode}
+            maxLength={4}
+            onChange={e => setJoinCode(e.target.value.toUpperCase())}
+            onKeyDown={e => e.key === 'Enter' && handleJoin()}
+            style={{ textTransform: 'uppercase', letterSpacing: '4px', textAlign: 'center' }}
+          />
+          <button className="btn-primary" onClick={handleJoin}>加入</button>
+          <button className="btn-ghost" onClick={() => setView('home')}>返回</button>
+        </div>
+      )}
+    </div>
+  )
+}

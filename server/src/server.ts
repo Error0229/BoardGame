@@ -17,13 +17,21 @@ app.use('/assets', express.static(path.join(__dirname, '../../assets')));
 
 const rooms = new Map<string, GameEngine>();
 const playerRoom = new Map<string, string>(); // socketId → roomCode
+const advanceReady = new Map<string, Set<string>>(); // roomCode → Set of socketIds that clicked 確認
 
 function broadcast(roomCode: string) {
   const game = rooms.get(roomCode);
   if (!game) return;
+  const ready = advanceReady.get(roomCode);
   Object.keys(game.state.players).forEach(pid => {
     const socket = io.sockets.sockets.get(pid);
-    if (socket) socket.emit('gameState', game.getClientState(pid));
+    if (!socket) return;
+    const state = game.getClientState(pid);
+    // 在 REVELATION / ROUND_END 時，用 waitingFor 表示「還未點確認」的玩家
+    if (ready && ['REVELATION', 'ROUND_END'].includes(state.phase)) {
+      state.waitingFor = Object.keys(game.state.players).filter(id => !ready.has(id));
+    }
+    socket.emit('gameState', state);
   });
 }
 
@@ -62,26 +70,68 @@ function finishResolution(roomCode: string) {
   const game = rooms.get(roomCode);
   if (!game) return;
 
-  // Revelation flash
+  // 短暫閃示「翻牌！」再結算
   game.state.phase = 'REVELATION';
   broadcast(roomCode);
 
   setTimeout(() => {
-    game.resolveAllLocations();
-    broadcast(roomCode);
-
-    setTimeout(() => {
-      game.endRound();
+    // 掃描需要玩家選擇的卡牌（VE03 宵禁令、VE05 大規模操控）
+    game.setupPendingChoices();
+    if (game.state.pendingChoices.length > 0) {
+      game.state.phase = 'REVELATION'; // 確保 client 顯示選擇 Modal
       broadcast(roomCode);
+      return;
+    }
+    runResolution(roomCode);
+  }, 1500);
+}
 
-      if (game.state.phase !== 'GAME_OVER') {
-        setTimeout(() => {
-          game.startHandBuild();
-          broadcast(roomCode);
-        }, 3500);
-      }
-    }, 4000);
-  }, 2000);
+function runResolution(roomCode: string) {
+  const game = rooms.get(roomCode);
+  if (!game) return;
+  game.resolveAllLocations();
+
+  // 結算後檢查 VE09 等需要勝者選擇的效果
+  game.setupPostResolutionChoices();
+  if (game.state.pendingChoices.length > 0) {
+    game.state.phase = 'REVELATION'; // 讓 client 顯示結果 + choice modal
+    broadcast(roomCode);
+    return;
+  }
+  finishReveal(roomCode);
+}
+
+function finishReveal(roomCode: string) {
+  const game = rooms.get(roomCode);
+  if (!game) return;
+  game.state.phase = 'REVELATION';
+  advanceReady.set(roomCode, new Set());
+  broadcast(roomCode);
+}
+
+function checkAdvanceReady(roomCode: string) {
+  const game = rooms.get(roomCode);
+  const ready = advanceReady.get(roomCode);
+  if (!game || !ready) return;
+
+  const allPlayerIds = Object.keys(game.state.players);
+  if (!allPlayerIds.every(pid => ready.has(pid))) return;
+
+  // 全員確認
+  advanceReady.delete(roomCode);
+
+  if (game.state.phase === 'REVELATION') {
+    game.endRound();
+    broadcast(roomCode);
+    if ((game.state.phase as string) === 'GAME_OVER') return;
+
+    // ROUND_END：再等全員確認才進手牌建造
+    advanceReady.set(roomCode, new Set());
+    broadcast(roomCode);
+  } else if (game.state.phase === 'ROUND_END') {
+    game.startHandBuild();
+    broadcast(roomCode);
+  }
 }
 
 // ─── Socket Events ─────────────────────────────
@@ -123,7 +173,7 @@ io.on('connection', (socket: Socket) => {
     const game = rooms.get(code);
     if (!game || game.state.phase !== 'LOBBY') return;
     const players = Object.values(game.state.players);
-    if (players.length < 2) { socket.emit('error', '至少需要 2 名玩家'); return; }
+    if (players.length < 3) { socket.emit('error', '至少需要 3 名玩家'); return; }
     // Only host (first player) can start
     if (players[0].id !== socket.id) { socket.emit('error', '只有房主可以開始遊戲'); return; }
     game.startClanSelect();
@@ -182,6 +232,42 @@ io.on('connection', (socket: Socket) => {
     game.submitWithdraw(socket.id, locationId, withdraw);
     broadcast(code);
     tryAdvance(code);
+  });
+
+  socket.on('respondChoice', ({ choiceId, option }: { choiceId: string; option: string }) => {
+    const code = playerRoom.get(socket.id);
+    if (!code) return;
+    const game = rooms.get(code);
+    if (!game) return;
+    // 確認這個選擇屬於此玩家
+    const choice = game.state.pendingChoices.find(c => c.id === choiceId && c.playerId === socket.id);
+    if (!choice) return;
+    game.applyPendingChoice(choiceId, option);
+    broadcast(code);
+    if (game.state.pendingChoices.length === 0) {
+      // 判斷現在是 pre-resolution 還是 post-resolution
+      if (game.state.lastConflictResults.length === 0) {
+        runResolution(code);       // 尚未結算 → 執行結算
+      } else {
+        finishReveal(code);        // 已結算 → 顯示結果
+      }
+    }
+  });
+
+  socket.on('readyAdvance', () => {
+    const code = playerRoom.get(socket.id);
+    if (!code) return;
+    const game = rooms.get(code);
+    if (!game) return;
+    if (!['REVELATION', 'ROUND_END'].includes(game.state.phase)) return;
+
+    const ready = advanceReady.get(code);
+    if (!ready) return;
+    ready.add(socket.id);
+
+    // 廣播最新確認人數（讓客戶端顯示等待狀態）
+    broadcast(code);
+    checkAdvanceReady(code);
   });
 
   socket.on('chat', (msg: string) => {

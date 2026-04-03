@@ -1,0 +1,119 @@
+.clan-select {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  max-width: 900px;
+}
+
+.clan-select__status {
+  font-size: 18px;
+  color: var(--text-h);
+}
+
+.clan-select__status strong {
+  color: var(--gold);
+}
+
+.clan-select__waiting {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* ── Grid ── */
+
+.clan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+/* ── Card ── */
+
+.clan-card {
+  position: relative;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  text-align: left;
+  padding: 0;
+  color: var(--text);
+  transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+
+.clan-card:hover:not(:disabled):not(.clan-card--mine) {
+  border-color: var(--clan-color);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+}
+
+.clan-card__color-bar {
+  height: 4px;
+  background: var(--clan-color);
+}
+
+.clan-card__body {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clan-card__name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-h);
+  line-height: 1.2;
+}
+
+.clan-card__name-en {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.clan-card__archetype {
+  font-size: 12px;
+  color: var(--clan-color);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  filter: brightness(1.5);
+}
+
+.clan-card__desc {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  margin-top: 6px;
+}
+
+/* States */
+
+.clan-card--taken {
+  opacity: 0.4;
+}
+
+.clan-card--mine {
+  border-color: var(--clan-color);
+  box-shadow: 0 0 0 1px var(--clan-color), 0 4px 16px rgba(0,0,0,0.4);
+}
+
+.clan-card__taken-by {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.clan-card__chosen {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--gold);
+  font-weight: 600;
+}

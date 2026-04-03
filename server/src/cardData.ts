@@ -2,6 +2,8 @@ import { CardDef, ClanId, LocationDef, AllyCard } from '@kindred/shared';
 
 // ─── 地點定義 ────────────────────────────────
 
+// 全部地點（依序：#1、#2、#3、王子的避難所）
+// 3–4 人使用前 3 個；5–6 人使用全部 4 個
 export const LOCATIONS: LocationDef[] = [
   {
     id: 'rack',
@@ -13,6 +15,12 @@ export const LOCATIONS: LocationDef[] = [
     id: 'asylum',
     name: 'The Asylum',
     influence: [[1, 0], [1, 1], [2, 1]],
+    isPrinces: false,
+  },
+  {
+    id: 'club_zombie',
+    name: 'Club Zombie',
+    influence: [[1, 0], [2, 1], [2, 1]],
     isPrinces: false,
   },
   {

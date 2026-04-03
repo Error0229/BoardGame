@@ -1,0 +1,104 @@
+.lobby-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.lobby-entry__name-row input {
+  width: 240px;
+  font-size: 18px;
+  text-align: center;
+}
+
+.lobby-entry__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.lobby-entry__actions input {
+  width: 180px;
+  font-size: 20px;
+}
+
+/* ── Room view ── */
+
+.lobby-room {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;
+}
+
+.lobby-room__header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.lobby-room__label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+}
+
+.lobby-room__code {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: 12px;
+  color: var(--gold);
+}
+
+.lobby-room__players {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.lobby-room__players-title {
+  padding: 10px 16px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+
+.lobby-room__player {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.lobby-room__player:last-child {
+  border-bottom: none;
+}
+
+.lobby-room__player-name {
+  color: var(--text-h);
+  font-size: 15px;
+}
+
+.lobby-room__host-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--gold-dim);
+  color: var(--gold);
+  letter-spacing: 0.5px;
+}
+
+.lobby-room__hint {
+  font-size: 14px;
+  color: var(--text-dim);
+}

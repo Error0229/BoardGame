@@ -1,0 +1,470 @@
+.planning {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  max-width: 960px;
+}
+
+/* ── Status Bar ── */
+
+.planning__bar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 24px;
+  width: 100%;
+}
+
+.planning__bar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.planning__bar-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+}
+
+.planning__bar-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-h);
+  line-height: 1;
+}
+
+.planning__bar-val--blood {
+  color: var(--blood-bright);
+}
+
+.planning__skip-btn {
+  margin-left: auto;
+  font-size: 13px;
+}
+
+.planning__hint {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.planning__waiting {
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+/* ── Board (locations grid) ── */
+
+.planning__board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.loc-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  cursor: default;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  min-height: 120px;
+}
+
+.loc-card--clickable {
+  cursor: pointer;
+}
+
+.loc-card--clickable:hover {
+  border-color: var(--blood);
+  box-shadow: 0 4px 16px rgba(139,0,0,0.3);
+}
+
+.loc-card--princes {
+  border-color: var(--gold-dim);
+}
+
+.loc-card--princes:hover.loc-card--clickable {
+  border-color: var(--gold);
+  box-shadow: 0 4px 16px rgba(201,162,39,0.3);
+}
+
+.loc-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.loc-card__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.loc-card__princes-badge {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(201,162,39,0.15);
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.loc-card__influence {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.loc-card__ally {
+  font-size: 11px;
+  color: var(--gold);
+  padding: 3px 6px;
+  background: rgba(201,162,39,0.08);
+  border-radius: 4px;
+}
+
+.loc-card__slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.loc-slot {
+  font-size: 10px;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 56px;
+  overflow: hidden;
+}
+
+.loc-slot--mine {
+  background: rgba(139,0,0,0.2);
+  border: 1px solid var(--blood);
+  color: #f0c0c0;
+}
+
+.loc-slot--other {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.loc-slot__img {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 4px 4px 0 0;
+}
+
+.loc-slot__tokens {
+  color: var(--blood-bright);
+  font-weight: 700;
+  font-size: 10px;
+  padding: 2px 0;
+}
+
+/* ── Hand & Alliance ── */
+
+.planning__hand-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.planning__section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+}
+
+.planning__hand {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ── Card tile (shared with HandBuild) ── */
+
+.card-tile {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  width: 160px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  cursor: default;
+  color: var(--text);
+}
+
+.card-tile--pickable {
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s, box-shadow 0.15s;
+}
+
+.card-tile--pickable:hover {
+  border-color: var(--blood);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+}
+
+.card-tile--selected {
+  border-color: var(--blood-bright) !important;
+  box-shadow: 0 0 0 2px var(--blood), 0 6px 20px rgba(139,0,0,0.4) !important;
+  transform: translateY(-3px);
+}
+
+.card-tile__type {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+}
+
+.card-tile__power {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--blood-bright);
+  line-height: 1;
+  margin: 2px 0;
+}
+
+.card-tile__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.card-tile__name-en {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.card-tile__effect {
+  font-size: 11px;
+  color: var(--text);
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+  line-height: 1.4;
+}
+
+/* ── Ally Tile ── */
+
+.ally-tile {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ally-tile--drained {
+  opacity: 0.45;
+}
+
+.ally-tile__type {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+}
+
+.ally-tile__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.ally-tile__stats {
+  font-size: 11px;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.ally-tile__drain-btn {
+  font-size: 11px;
+  padding: 4px 10px;
+  margin-top: 4px;
+  align-self: flex-start;
+  color: var(--gold);
+  border-color: var(--gold-dim);
+}
+
+.ally-tile__drained-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-top: 4px;
+}
+
+/* ── Deploy Dialog ── */
+
+.deploy-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.deploy-dialog {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px 28px;
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.deploy-dialog__header {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.deploy-dialog__header strong {
+  color: var(--text-h);
+}
+
+.deploy-dialog__card-preview {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.deploy-dialog__card-img {
+  width: 80px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.deploy-dialog__card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.deploy-dialog__card-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.deploy-dialog__card-name-en {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.deploy-dialog__card-power {
+  font-size: 13px;
+  color: var(--blood-bright);
+}
+
+.deploy-dialog__card-effect {
+  font-size: 11px;
+  color: var(--text);
+  line-height: 1.5;
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+  margin-top: 2px;
+}
+
+.deploy-dialog__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.deploy-dialog__cost {
+  color: var(--blood-bright);
+  font-size: 13px;
+}
+
+.deploy-dialog__free {
+  color: #4caf50;
+  font-size: 13px;
+}
+
+.deploy-dialog__token-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deploy-dialog__token-ctrl button {
+  width: 28px;
+  height: 28px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-h);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deploy-dialog__token-ctrl button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.deploy-dialog__token-val {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-h);
+  min-width: 20px;
+  text-align: center;
+}
+
+.deploy-dialog__total {
+  font-size: 14px;
+  color: var(--text-dim);
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.deploy-dialog__insufficient {
+  color: var(--blood-bright);
+}
+
+.deploy-dialog__actions {
+  display: flex;
+  gap: 10px;
+}

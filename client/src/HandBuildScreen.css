@@ -1,0 +1,147 @@
+.handbuild {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  width: 100%;
+  max-width: 860px;
+}
+
+.handbuild__round {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+}
+
+.handbuild__section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.handbuild__section-title {
+  font-size: 14px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.handbuild__draft {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.handbuild__hand {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.handbuild__waiting {
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+/* ── Card Tile ── */
+
+/* ── Card Image ── */
+.card-img {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 6px 6px 0 0;
+  display: block;
+}
+
+.card-img--facedown {
+  background: linear-gradient(135deg, #1a1a2e 0%, #2a1a2e 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px 6px 0 0;
+}
+
+.card-img__facedown-icon {
+  font-size: 32px;
+  color: var(--text-dim);
+  opacity: 0.4;
+}
+
+.card-img--empty {
+  background: var(--bg-3, #111);
+  border-radius: 6px 6px 0 0;
+}
+
+/* ── Card Tile ── */
+.card-tile {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0;
+  width: 160px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  cursor: default;
+  color: var(--text);
+  overflow: hidden;
+}
+
+.card-tile__body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card-tile--pickable {
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.card-tile--pickable:hover:not(:disabled) {
+  border-color: var(--blood-bright);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+.card-tile__type {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+}
+
+.card-tile__power {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--blood-bright);
+  line-height: 1;
+  margin: 4px 0;
+}
+
+.card-tile__name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.card-tile__name-en {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.card-tile__effect {
+  font-size: 12px;
+  color: var(--text);
+  margin-top: 6px;
+  line-height: 1.5;
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+}

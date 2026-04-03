@@ -1,0 +1,315 @@
+.revelation {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 1100px;
+}
+
+.revelation__header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.revelation__title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.revelation__subtitle {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.revelation__body {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 20px;
+  align-items: start;
+}
+
+/* ── Results grid ── */
+
+.revelation__results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.revelation__empty {
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+/* ── Result Card ── */
+
+.result-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.result-card--winner {
+  border-color: var(--gold-dim);
+  box-shadow: 0 0 12px rgba(201,162,39,0.12);
+}
+
+.result-card__loc {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-h);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.result-card__princes {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(201,162,39,0.15);
+  color: var(--gold);
+  text-transform: uppercase;
+}
+
+.result-card__tie {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* 部署牌 */
+.result-card__slots {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.result-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: var(--bg-3);
+}
+
+.result-slot--mine {
+  background: rgba(139,0,0,0.15);
+  border: 1px solid rgba(139,0,0,0.3);
+}
+
+.result-slot--withdrawn {
+  opacity: 0.4;
+}
+
+.result-slot__img {
+  width: 40px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.result-slot__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.result-slot__owner {
+  color: var(--text-dim);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-slot__card {
+  color: var(--text-h);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.result-slot__badges {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.result-slot__tokens { color: var(--blood-bright); font-size: 11px; }
+.result-slot__wd { color: var(--gold-dim); font-size: 10px; font-style: italic; }
+.result-slot__power { color: var(--gold); font-weight: 700; font-size: 12px; }
+
+/* 分數 */
+.result-card__scores {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.result-card__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
+.result-card__row--first { background: rgba(201,162,39,0.08); }
+.result-card__row--me { outline: 1px solid var(--border); }
+
+.result-card__rank { font-size: 11px; color: var(--text-dim); min-width: 20px; }
+.result-card__pname { flex: 1; color: var(--text-h); }
+.result-card__score { font-size: 12px; color: var(--text-dim); }
+.result-card__inf { color: var(--gold); font-size: 12px; font-weight: 700; }
+
+/* 效果日誌 */
+.result-card__events {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.result-card__events-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+
+.result-card__event-line {
+  font-size: 12px;
+  color: var(--blood-bright);
+  line-height: 1.5;
+}
+
+/* ── Sidebar ── */
+
+.revelation__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 20px;
+}
+
+.revelation__standings {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.revelation__standings-title {
+  padding: 8px 14px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+
+.revelation__standing-row {
+  display: grid;
+  grid-template-columns: 24px 1fr 48px 48px;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  gap: 6px;
+}
+
+.revelation__standing-row:last-child { border-bottom: none; }
+.revelation__standing-row--me { background: rgba(201,162,39,0.05); }
+
+.revelation__standing-rank { color: var(--text-dim); font-size: 11px; }
+.revelation__standing-name { color: var(--text-h); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.revelation__standing-inf { color: var(--gold); text-align: right; font-weight: 700; font-size: 12px; }
+.revelation__standing-blood { color: var(--blood-bright); text-align: right; font-size: 12px; }
+
+/* ── Confirm area ── */
+
+.revelation__confirm-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.revelation__confirm-btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 15px;
+}
+
+.revelation__confirmed {
+  font-size: 14px;
+  color: #4caf50;
+  font-weight: 600;
+}
+
+.revelation__waiting {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+/* ── 待選擇強制 Modal ── */
+.choice-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.choice-modal {
+  background: var(--panel-bg, #1a1a2e);
+  border: 2px solid var(--gold, #c9a84c);
+  border-radius: 12px;
+  padding: 32px 40px;
+  max-width: 420px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.choice-modal__prompt {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gold, #c9a84c);
+  line-height: 1.5;
+}
+
+.choice-modal__options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.choice-modal__btn {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 14px;
+  text-align: left;
+}

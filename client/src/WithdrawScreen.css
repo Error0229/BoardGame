@@ -1,0 +1,112 @@
+.withdraw {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  max-width: 600px;
+}
+
+.withdraw--waiting {
+  color: var(--text-dim);
+  gap: 12px;
+}
+
+.withdraw__waiting-text {
+  font-size: 16px;
+}
+
+.withdraw__waiting-names {
+  font-size: 13px;
+}
+
+.withdraw__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.withdraw__subtitle {
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.withdraw__locations {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.withdraw__loc {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: border-color 0.15s;
+}
+
+.withdraw__loc--stay {
+  border-color: #2d6b2d;
+}
+
+.withdraw__loc--out {
+  border-color: var(--gold-dim);
+}
+
+.withdraw__loc-name {
+  font-weight: 600;
+  color: var(--text-h);
+  min-width: 100px;
+}
+
+.withdraw__loc-cards {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.withdraw__card-badge {
+  font-size: 11px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  color: var(--text);
+}
+
+.withdraw__loc-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.withdraw__btn {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.withdraw__btn:hover {
+  border-color: var(--text-dim);
+}
+
+.withdraw__btn--active-stay {
+  border-color: #4caf50;
+  color: #4caf50;
+}
+
+.withdraw__btn--active-out {
+  border-color: var(--gold);
+  color: var(--gold);
+}
