@@ -223,7 +223,8 @@ export class GameEngine {
       if (feedGain > 0) this.log(`${p.name} 從同盟獲得 +${feedGain} 血液`);
 
       // Feed phase: reset drained allies (回合結束後可再次使用)
-      p.alliance.forEach(a => { a.drained = false; });
+      // NOTE: 根據規則，汲取應該是一次性的行為，汲取後的牌持續到遊戲結束
+      // p.alliance.forEach(a => { a.drained = false; });
       p.handCount = p.hand.length;
       p.allianceCount = p.alliance.length;
     });
@@ -1213,9 +1214,9 @@ export class GameEngine {
     const s = this.state;
     s.phase = 'GAME_OVER';
 
-    // Final score: influence tokens + alliance influence - diablerie
+    // Final score: influence tokens + alliance influence (use drainInfluence for drained allies) - diablerie
     Object.values(s.players).forEach(p => {
-      const allianceInf = p.alliance.reduce((sum, a) => sum + a.influence, 0);
+      const allianceInf = p.alliance.reduce((sum, a) => sum + (a.drained ? a.drainInfluence : a.influence), 0);
       p.influence += allianceInf - p.diablerie;
     });
 
