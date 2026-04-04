@@ -83,6 +83,19 @@
   min-height: 120px;
 }
 
+.loc-card__image {
+  width: 100%;
+  height: 80px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.loc-card__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .loc-card--clickable {
   cursor: pointer;
 }

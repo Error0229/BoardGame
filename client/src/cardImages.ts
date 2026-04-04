@@ -79,9 +79,19 @@ export const CARD_IMAGES: Record<string, string> = {
   VE02: '/assets/ventrue/card_07.webp',
   VE03: '/assets/ventrue/card_08.webp',
   VE07: '/assets/ventrue/card_09.webp',
+
+  // Locations
+  rack: '/assets/locations/card_00.webp',
+  asylum: '/assets/locations/card_01.webp',
+  club_zombie: '/assets/locations/card_02.webp',
+  haven: '/assets/locations/card_03.webp',
 }
 
 export function cardImageSrc(cardId: string | null | undefined): string | null {
   if (!cardId) return null
   return CARD_IMAGES[cardId] ?? null
+}
+
+export function locationImageSrc(locationId: string): string | null {
+  return CARD_IMAGES[locationId] ?? null
 }

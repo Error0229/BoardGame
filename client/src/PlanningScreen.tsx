@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { CardDef, GameStateClient, AllyCard, ClanId } from '@kindred/shared'
 import socket from './socket'
 import CardImage from './CardImage'
+import { locationImageSrc } from './cardImages'
 import './PlanningScreen.css'
 
 interface Props {
@@ -173,6 +174,9 @@ export default function PlanningScreen({ myId, gameState }: Props) {
               className={`loc-card ${clickable ? 'loc-card--clickable' : ''} ${loc.isPrinces ? 'loc-card--princes' : ''}`}
               onClick={() => clickLocation(loc.id, loc.name)}
             >
+              <div className="loc-card__image">
+                <img src={locationImageSrc(loc.id) ?? ''} alt={loc.name} />
+              </div>
               <div className="loc-card__header">
                 <span className="loc-card__name">{loc.name}</span>
                 {loc.isPrinces && <span className="loc-card__princes-badge">王子之地</span>}
