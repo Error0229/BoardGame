@@ -67,6 +67,9 @@ export default function ClanSelectScreen({ myId, gameState }: Props) {
               disabled={isTaken || !!me?.clan}
             >
               <div className="clan-card__color-bar" />
+              <div className="clan-card__image">
+                <img src={`/assets/${clanId}/card_00.webp`} alt={`${info.name_zh} 氏族卡牌`} />
+              </div>
               <div className="clan-card__body">
                 <div className="clan-card__name">{info.name_zh}</div>
                 <div className="clan-card__name-en">{clanId.charAt(0).toUpperCase() + clanId.slice(1)}</div>
