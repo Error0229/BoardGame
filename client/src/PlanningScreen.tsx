@@ -96,6 +96,8 @@ export default function PlanningScreen({ myId, gameState }: Props) {
 
   const [selectedCard, setSelectedCard] = useState<CardDef | null>(null)
   const [dialog, setDialog] = useState<{ card: CardDef; locId: string; locName: string } | null>(null)
+  const [expandedAllies, setExpandedAllies] = useState<Set<string>>(new Set())
+  const [slotPopup, setSlotPopup] = useState<{ cardId: string; ownerName: string } | null>(null)
 
   function selectCard(card: CardDef) {
     setSelectedCard(prev => prev?.id === card.id ? null : card)
@@ -187,16 +189,39 @@ export default function PlanningScreen({ myId, gameState }: Props) {
               </div>
 
               {ally && (
-                <div className="loc-card__ally">
-                  {ally.type === 'vampire' ? '🧛' : '👤'} {ally.name}
+                <div
+                  className="loc-card__ally"
+                  onClick={e => { e.stopPropagation(); setExpandedAllies(prev => { const s = new Set(prev); s.has(loc.id) ? s.delete(loc.id) : s.add(loc.id); return s; }) }}
+                >
+                  <div className="loc-card__ally-header">
+                    <span className="loc-card__ally-type">{ally.type === 'vampire' ? '吸血鬼' : '人類'}</span>
+                    <span className="loc-card__ally-name">{ally.name}</span>
+                    <span className="loc-card__ally-chevron">{expandedAllies.has(loc.id) ? '▲' : '▼'}</span>
+                  </div>
+                  {expandedAllies.has(loc.id) && (
+                    <>
+                      <div className="loc-card__ally-stats">
+                        <span title="影響力">🏛 {ally.influence}</span>
+                        <span title="每回合獲得血液">🩸 +{ally.feedBlood}</span>
+                        {ally.drainBlood > 0 && <span title="汲取獲得血液">⚡ +{ally.drainBlood}血</span>}
+                        {ally.drainInfluence > 0 && <span title="汲取獲得影響力">⚡ +{ally.drainInfluence}影</span>}
+                      </div>
+                      {ally.effect_zh && <div className="loc-card__ally-effect">{ally.effect_zh}</div>}
+                    </>
+                  )}
                 </div>
               )}
 
               <div className="loc-card__slots">
                 {mySlots.map((sl, i) => {
                   const clan = me?.clan
+                  const canPeek = !sl.faceDown && sl.cardId
                   return (
-                    <div key={i} className="loc-slot loc-slot--mine">
+                    <div
+                      key={i}
+                      className={`loc-slot loc-slot--mine ${canPeek ? 'loc-slot--peekable' : ''}`}
+                      onClick={e => { e.stopPropagation(); if (canPeek) setSlotPopup({ cardId: sl.cardId!, ownerName: me?.name ?? '我' }) }}
+                    >
                       <CardImage cardId={sl.cardId ?? null} clan={clan} faceDown={sl.faceDown} className="loc-slot__img" />
                       {sl.bloodTokens > 0 && <span className="loc-slot__tokens">+{sl.bloodTokens}💧</span>}
                     </div>
@@ -204,8 +229,13 @@ export default function PlanningScreen({ myId, gameState }: Props) {
                 })}
                 {otherSlots.map((sl, i) => {
                   const ownerClan = gameState.players[sl.playerId]?.clan as ClanId | null
+                  const canPeek = !sl.faceDown && !!sl.cardId
                   return (
-                    <div key={i} className="loc-slot loc-slot--other">
+                    <div
+                      key={i}
+                      className={`loc-slot loc-slot--other ${canPeek ? 'loc-slot--peekable' : ''}`}
+                      onClick={e => { e.stopPropagation(); if (canPeek) setSlotPopup({ cardId: sl.cardId!, ownerName: gameState.players[sl.playerId]?.name ?? '對手' }) }}
+                    >
                       <CardImage cardId={sl.cardId ?? null} clan={ownerClan} faceDown={sl.faceDown || !sl.cardId} className="loc-slot__img" />
                       {sl.bloodTokens > 0 && !sl.bloodTokensHidden && <span className="loc-slot__tokens">+{sl.bloodTokens}💧</span>}
                     </div>

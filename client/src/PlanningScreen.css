@@ -145,9 +145,65 @@
 .loc-card__ally {
   font-size: 11px;
   color: var(--gold);
-  padding: 3px 6px;
+  padding: 5px 7px;
   background: rgba(201,162,39,0.08);
+  border: 1px solid rgba(201,162,39,0.2);
   border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.loc-card__ally:hover {
+  background: rgba(201,162,39,0.13);
+}
+
+.loc-card__ally-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.loc-card__ally-type {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  background: rgba(201,162,39,0.12);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.loc-card__ally-name {
+  font-weight: 600;
+  color: var(--gold);
+  flex: 1;
+}
+
+.loc-card__ally-chevron {
+  font-size: 8px;
+  color: var(--text-dim);
+  opacity: 0.6;
+}
+
+.loc-card__ally-stats {
+  display: flex;
+  gap: 7px;
+  font-size: 10px;
+  color: var(--text);
+  flex-wrap: wrap;
+}
+
+.loc-card__ally-effect {
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  border-top: 1px solid rgba(201,162,39,0.15);
+  padding-top: 3px;
+  margin-top: 1px;
+  font-style: italic;
 }
 
 .loc-card__slots {
@@ -328,6 +384,16 @@
   align-self: flex-start;
   color: var(--gold);
   border-color: var(--gold-dim);
+}
+
+.ally-tile__effect {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+  margin-top: 2px;
+  font-style: italic;
 }
 
 .ally-tile__drained-label {
