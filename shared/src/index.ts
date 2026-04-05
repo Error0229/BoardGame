@@ -50,6 +50,7 @@ export interface AllyCard {
   feedBlood: number;
   drainBlood: number;
   drainInfluence: number;
+  effect_zh?: string | null;
   drained?: boolean;
 }
 
