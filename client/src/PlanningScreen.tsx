@@ -3,6 +3,7 @@ import type { CardDef, GameStateClient, AllyCard, ClanId } from '@kindred/shared
 import socket from './socket'
 import CardImage from './CardImage'
 import { locationImageSrc } from './cardImages'
+import { CARD_DEFS, TYPE_LABEL_ZH } from './cardDefs'
 import './PlanningScreen.css'
 
 interface Props {
@@ -285,6 +286,7 @@ export default function PlanningScreen({ myId, gameState }: Props) {
                   影響 {ally.influence}　餵食 +{ally.feedBlood}
                   {ally.drainBlood > 0 && `　汲取 +${ally.drainBlood}血`}
                 </div>
+                {ally.effect_zh && <div className="ally-tile__effect">{ally.effect_zh}</div>}
                 {!ally.drained && !alreadyDone && (
                   <button className="btn-ghost ally-tile__drain-btn" onClick={() => drainAlly(ally)}>
                     汲取
@@ -296,6 +298,31 @@ export default function PlanningScreen({ myId, gameState }: Props) {
           </div>
         </section>
       )}
+
+      {slotPopup && (() => {
+        const def = CARD_DEFS[slotPopup.cardId]
+        return (
+          <div className="slot-popup-overlay" onClick={() => setSlotPopup(null)}>
+            <div className="slot-popup" onClick={e => e.stopPropagation()}>
+              <div className="slot-popup__owner">{slotPopup.ownerName} 的牌</div>
+              <CardImage cardId={slotPopup.cardId} className="slot-popup__img" />
+              {def ? (
+                <div className="slot-popup__info">
+                  <div className="slot-popup__type">{TYPE_LABEL_ZH[def.type] ?? def.type}</div>
+                  <div className="slot-popup__name">{def.name_zh}</div>
+                  <div className="slot-popup__power">戰力 {def.power}</div>
+                  {def.effect_zh && <div className="slot-popup__effect">{def.effect_zh}</div>}
+                </div>
+              ) : (
+                <div className="slot-popup__info">
+                  <div className="slot-popup__name">{slotPopup.cardId}</div>
+                </div>
+              )}
+              <button className="btn-ghost slot-popup__close" onClick={() => setSlotPopup(null)}>關閉</button>
+            </div>
+          </div>
+        )
+      })()}
 
       {dialog && (
         <DeployDialog
