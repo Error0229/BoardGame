@@ -50,6 +50,53 @@
   font-size: 13px;
 }
 
+.planning__bar-val--myturn {
+  color: var(--blood-bright);
+  animation: pulse-text 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-text {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.planning__turn-order {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+  flex-wrap: wrap;
+}
+
+.turn-order__player {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+
+.turn-order__player--active {
+  border-color: var(--blood-bright);
+  color: var(--blood-bright);
+  font-weight: 700;
+  background: rgba(200, 0, 0, 0.1);
+}
+
+.turn-order__player--done {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.turn-order__arrow {
+  color: var(--text-dim);
+  font-size: 11px;
+  padding-right: 6px;
+}
+
 .planning__hint {
   font-size: 13px;
   color: var(--text-dim);
@@ -105,8 +152,40 @@
   box-shadow: 0 4px 16px rgba(139,0,0,0.3);
 }
 
+/* 選牌後：地點脈衝提示可部署 */
+@keyframes pulse-target {
+  0%, 100% { box-shadow: 0 0 0 0   rgba(139,0,0,0.3); }
+  50%       { box-shadow: 0 0 0 5px rgba(139,0,0,0.1); }
+}
+
+.loc-card--targetable {
+  border-color: rgba(139,0,0,0.6) !important;
+  animation: pulse-target 1.6s ease-in-out infinite;
+}
+
+/* 部署成功瞬間 flash */
+@keyframes deploy-flash {
+  0%   { background: rgba(201,162,39,0.22); }
+  100% { background: transparent; }
+}
+
+.loc-card--flash {
+  animation: deploy-flash 0.9s ease-out forwards !important;
+}
+
 .loc-card--princes {
   border-color: var(--gold-dim);
+}
+
+/* 王子之地選牌時改為金色脈衝 */
+@keyframes pulse-target-gold {
+  0%, 100% { box-shadow: 0 0 0 0   rgba(201,162,39,0.3); }
+  50%       { box-shadow: 0 0 0 5px rgba(201,162,39,0.1); }
+}
+
+.loc-card--princes.loc-card--targetable {
+  border-color: var(--gold-dim) !important;
+  animation: pulse-target-gold 1.6s ease-in-out infinite;
 }
 
 .loc-card--princes:hover.loc-card--clickable {
@@ -382,6 +461,11 @@
   border-color: var(--blood);
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+}
+
+.card-tile--waiting {
+  cursor: default;
+  opacity: 0.55;
 }
 
 .card-tile--selected {

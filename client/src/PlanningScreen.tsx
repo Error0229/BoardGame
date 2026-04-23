@@ -94,18 +94,21 @@ export default function PlanningScreen({ myId, gameState }: Props) {
   const alliance = gameState.myAlliance
   const waiting = gameState.waitingFor
   const alreadyDone = !waiting.includes(myId)
+  const isMyTurn = gameState.currentTurnPlayerId === myId
+  const canDeploy = !alreadyDone && isMyTurn
 
   const [selectedCard, setSelectedCard] = useState<CardDef | null>(null)
   const [dialog, setDialog] = useState<{ card: CardDef; locId: string; locName: string } | null>(null)
   const [expandedAllies, setExpandedAllies] = useState<Set<string>>(new Set())
   const [slotPopup, setSlotPopup] = useState<{ cardId: string; ownerName: string } | null>(null)
+  const [flashLocId, setFlashLocId] = useState<string | null>(null)
 
   function selectCard(card: CardDef) {
     setSelectedCard(prev => prev?.id === card.id ? null : card)
   }
 
   function clickLocation(locId: string, locName: string) {
-    if (!selectedCard || alreadyDone) return
+    if (!selectedCard || !canDeploy) return
     setDialog({ card: selectedCard, locId, locName })
   }
 
@@ -117,8 +120,11 @@ export default function PlanningScreen({ myId, gameState }: Props) {
       faceDown,
       bloodTokens,
     })
+    const locId = dialog.locId
     setDialog(null)
     setSelectedCard(null)
+    setFlashLocId(locId)
+    setTimeout(() => setFlashLocId(null), 900)
   }
 
   function skip() {
@@ -145,21 +151,55 @@ export default function PlanningScreen({ myId, gameState }: Props) {
           <span className="planning__bar-label">手牌</span>
           <span className="planning__bar-val">{hand.length} 張</span>
         </div>
-        {!alreadyDone && (
+        <div className="planning__bar-item">
+          <span className="planning__bar-label">當前出牌</span>
+          <span className={`planning__bar-val ${isMyTurn && !alreadyDone ? 'planning__bar-val--myturn' : ''}`}>
+            {gameState.players[gameState.currentTurnPlayerId]?.name ?? '—'}
+          </span>
+        </div>
+        {canDeploy && (
           <button className="btn-ghost planning__skip-btn" onClick={skip}>
             結束部署
           </button>
         )}
       </div>
 
+      {/* 出牌順序 */}
+      {gameState.playerOrder.length > 0 && (
+        <div className="planning__turn-order">
+          {gameState.playerOrder.map((pid, i) => {
+            const player = gameState.players[pid]
+            const isCurrentTurn = pid === gameState.currentTurnPlayerId
+            const isDone = !waiting.includes(pid)
+            return (
+              <span
+                key={pid}
+                className={[
+                  'turn-order__player',
+                  isCurrentTurn ? 'turn-order__player--active' : '',
+                  isDone ? 'turn-order__player--done' : '',
+                ].filter(Boolean).join(' ')}
+              >
+                {i > 0 && <span className="turn-order__arrow">→</span>}
+                {player?.name ?? pid}
+              </span>
+            )
+          })}
+        </div>
+      )}
+
       {alreadyDone ? (
         <div className="planning__waiting">
           已完成部署，等待：{waiting.map(id => gameState.players[id]?.name ?? id).join('、')}
         </div>
+      ) : !isMyTurn ? (
+        <div className="planning__waiting">
+          等待 <strong>{gameState.players[gameState.currentTurnPlayerId]?.name ?? '...'}</strong> 出牌
+        </div>
       ) : selectedCard ? (
         <div className="planning__hint">選擇部署地點 ↓　（再次點擊手牌取消選擇）</div>
       ) : (
-        <div className="planning__hint">點擊手牌選擇，再選擇地點部署</div>
+        <div className="planning__hint">你的回合！點擊手牌選擇，再選擇地點部署</div>
       )}
 
       {/* Board */}
@@ -169,12 +209,18 @@ export default function PlanningScreen({ myId, gameState }: Props) {
           const mySlots = slots.filter(s => s.playerId === myId)
           const otherSlots = slots.filter(s => s.playerId !== myId)
           const ally = gameState.locationAllies[loc.id]
-          const clickable = !!selectedCard && !alreadyDone
+          const clickable = !!selectedCard && canDeploy
 
           return (
             <div
               key={loc.id}
-              className={`loc-card ${clickable ? 'loc-card--clickable' : ''} ${loc.isPrinces ? 'loc-card--princes' : ''}`}
+              className={[
+                'loc-card',
+                clickable             ? 'loc-card--clickable'  : '',
+                clickable             ? 'loc-card--targetable' : '',
+                loc.isPrinces         ? 'loc-card--princes'    : '',
+                flashLocId === loc.id ? 'loc-card--flash'      : '',
+              ].filter(Boolean).join(' ')}
               onClick={() => clickLocation(loc.id, loc.name)}
             >
               <div className="loc-card__image">
@@ -256,8 +302,9 @@ export default function PlanningScreen({ myId, gameState }: Props) {
             {hand.map(card => (
               <button
                 key={card.id}
-                className={`card-tile card-tile--pickable ${selectedCard?.id === card.id ? 'card-tile--selected' : ''}`}
-                onClick={() => selectCard(card)}
+                className={`card-tile ${canDeploy ? 'card-tile--pickable' : 'card-tile--waiting'} ${selectedCard?.id === card.id ? 'card-tile--selected' : ''}`}
+                onClick={() => canDeploy && selectCard(card)}
+                disabled={!canDeploy}
               >
                 <CardImage cardId={card.id} clan={card.clan} />
                 <div className="card-tile__body">
