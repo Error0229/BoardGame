@@ -40,8 +40,45 @@
   color: var(--text-dim);
 }
 
+.app-header__icon-btn {
+  width: 30px;
+  height: 30px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, border-color 0.15s;
+  font-weight: 700;
+}
+
+.app-header__icon-btn:hover {
+  color: var(--text-h);
+  border-color: var(--gold-dim);
+}
+
 .app-header__conn--on {
   color: #4caf50;
+}
+
+@keyframes action-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+.app-header__action-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: var(--blood);
+  color: #ffd0d0;
+  letter-spacing: 0.5px;
+  animation: action-pulse 1.4s ease-in-out infinite;
 }
 
 /* ── Main ── */

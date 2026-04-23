@@ -8,6 +8,8 @@ import PlanningScreen from './PlanningScreen'
 import WithdrawScreen from './WithdrawScreen'
 import RevelationScreen from './RevelationScreen'
 import GameOverScreen from './GameOverScreen'
+import CardLibrary from './CardLibrary'
+import RulesModal from './RulesModal'
 import './App.css'
 
 export default function App() {
@@ -15,6 +17,8 @@ export default function App() {
   const [gameState, setGameState] = useState<GameStateClient | null>(null)
   const [connected, setConnected] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [showLibrary, setShowLibrary] = useState(false)
+  const [showRules, setShowRules] = useState(false)
 
   useEffect(() => {
     socket.on('connect', () => {
@@ -36,6 +40,14 @@ export default function App() {
   }, [])
 
   const phase = gameState?.phase ?? null
+
+  // 判斷目前是否需要玩家行動
+  const needsAction = (() => {
+    if (!gameState || !myId) return false
+    const w = gameState.waitingFor
+    const actionPhases = ['PLANNING', 'WITHDRAW', 'HAND_BUILD', 'REVELATION', 'ROUND_END']
+    return actionPhases.includes(phase ?? '') && w.includes(myId)
+  })()
 
   function renderScreen() {
     if (!gameState) return <LobbyScreen myId={myId} gameState={null} onError={setErrorMsg} />
@@ -69,6 +81,15 @@ export default function App() {
           {gameState && !['LOBBY', 'GAME_OVER'].includes(phase ?? '') && (
             <span className="app-header__round">第 {gameState.round + 1} 回合</span>
           )}
+          {needsAction && (
+            <span className="app-header__action-badge">輪到你了</span>
+          )}
+          <button className="app-header__icon-btn" onClick={() => setShowLibrary(true)} title="卡牌圖鑑">
+            📖
+          </button>
+          <button className="app-header__icon-btn" onClick={() => setShowRules(true)} title="遊戲規則">
+            ?
+          </button>
           <div className={`app-header__conn ${connected ? 'app-header__conn--on' : ''}`}>
             {connected ? '● 已連線' : '○ 連線中…'}
           </div>
@@ -84,6 +105,9 @@ export default function App() {
       </main>
 
       {errorMsg && <div className="app-error">{errorMsg}</div>}
+
+      {showLibrary && <CardLibrary onClose={() => setShowLibrary(false)} />}
+      {showRules   && <RulesModal  onClose={() => setShowRules(false)} />}
     </div>
   )
 }

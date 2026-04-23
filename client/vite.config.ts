@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
+      host: true,   // 監聽所有網路介面，包含 VPN IP
       proxy: {
         '/socket.io': { target: serverUrl, ws: true },
         '/assets': { target: serverUrl },

@@ -34,8 +34,22 @@ function CardTile({ card, onPick, disabled }: { card: CardDef; onPick?: () => vo
   )
 }
 
+function TypeDistribution({ cards, label }: { cards: { type: string }[]; label: string }) {
+  const counts: Record<string, number> = { conflict: 0, preparation: 0, aftermath: 0, passive: 0 }
+  cards.forEach(c => { if (c.type in counts) counts[c.type]++ })
+  return (
+    <div className="handbuild__dist">
+      <span className="handbuild__dist-label">{label}：</span>
+      {(['conflict','preparation','aftermath','passive'] as const).map(t => (
+        <span key={t} className={`handbuild__dist-tag handbuild__dist-tag--${t} ${counts[t] === 0 ? 'handbuild__dist-tag--zero' : ''}`}>
+          {TYPE_LABEL[t]} {counts[t]}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 export default function HandBuildScreen({ myId, gameState }: Props) {
-  const me = gameState.players[myId]
   const draft = gameState.myHandBuildDraft
   const hand  = gameState.myHand
   const waiting = gameState.waitingFor
@@ -55,11 +69,14 @@ export default function HandBuildScreen({ myId, gameState }: Props) {
           {alreadyPicked ? '已選擇，等待其他玩家…' : `選擇一張加入手牌（${draft.length} 選 1）`}
         </div>
         {!alreadyPicked && (
-          <div className="handbuild__draft">
-            {draft.map(card => (
-              <CardTile key={card.id} card={card} onPick={() => pick(card.id)} />
-            ))}
-          </div>
+          <>
+            <div className="handbuild__draft">
+              {draft.map(card => (
+                <CardTile key={card.id} card={card} onPick={() => pick(card.id)} />
+              ))}
+            </div>
+            {hand.length > 0 && <TypeDistribution cards={[...hand, ...draft]} label="加入後手牌分布（預覽）" />}
+          </>
         )}
       </section>
 
@@ -67,6 +84,7 @@ export default function HandBuildScreen({ myId, gameState }: Props) {
       {hand.length > 0 && (
         <section className="handbuild__section">
           <div className="handbuild__section-title">目前手牌（{hand.length} 張）</div>
+          <TypeDistribution cards={hand} label="現有分布" />
           <div className="handbuild__hand">
             {hand.map(card => (
               <CardTile key={card.id} card={card} />

@@ -2,22 +2,19 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  gap: 20px;
   width: 100%;
-  max-width: 600px;
+  max-width: 960px;
 }
 
-.withdraw--waiting {
-  color: var(--text-dim);
-  gap: 12px;
-}
+/* ── Header ── */
 
-.withdraw__waiting-text {
-  font-size: 16px;
-}
-
-.withdraw__waiting-names {
-  font-size: 13px;
+.withdraw__header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
 }
 
 .withdraw__title {
@@ -32,81 +29,274 @@
   text-align: center;
 }
 
-.withdraw__locations {
+.withdraw__status {
+  font-size: 13px;
+  color: var(--text-dim);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 18px;
+  margin-top: 4px;
+}
+.withdraw__status--done {
+  color: #4caf50;
+  border-color: rgba(76,175,80,0.3);
+}
+
+.withdraw__status--reveal {
+  color: var(--gold);
+  border-color: rgba(201,162,39,0.4);
+  background: rgba(201,162,39,0.07);
+  font-weight: 600;
+  animation: action-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes action-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
+
+.withdraw__empty {
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+/* ── Board grid ── */
+
+.withdraw__board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
   width: 100%;
+}
+
+/* ── Location card ── */
+
+.wd-loc {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-.withdraw__loc {
-  background: var(--bg-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
   transition: border-color 0.15s;
 }
 
-.withdraw__loc--stay {
-  border-color: #2d6b2d;
+/* 自己有部署的地點加上淡色左邊框 */
+.wd-loc--mine {
+  border-left: 3px solid rgba(139,0,0,0.4);
 }
 
-.withdraw__loc--out {
-  border-color: var(--gold-dim);
+.wd-loc--stay {
+  border-color: rgba(76,175,80,0.5);
+  background: rgba(76,175,80,0.04);
 }
 
-.withdraw__loc-name {
-  font-weight: 600;
-  color: var(--text-h);
-  min-width: 100px;
+.wd-loc--out {
+  border-color: rgba(201,162,39,0.4);
+  background: rgba(201,162,39,0.04);
 }
 
-.withdraw__loc-cards {
-  flex: 1;
+.wd-loc__header {
   display: flex;
+  align-items: center;
   gap: 6px;
   flex-wrap: wrap;
 }
 
-.withdraw__card-badge {
-  font-size: 11px;
-  background: var(--bg-3);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 2px 8px;
-  color: var(--text);
+.wd-loc__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-h);
+  flex: 1;
 }
 
-.withdraw__loc-btns {
+.wd-loc__princes {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(201,162,39,0.15);
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.wd-loc__influence {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* ── Slots ── */
+
+.wd-loc__slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wd-slot {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  border-radius: 6px;
+  padding: 5px 7px 5px 5px;
+  border: 1px solid var(--border);
+}
+
+.wd-slot--mine {
+  background: rgba(139,0,0,0.12);
+  border-color: rgba(139,0,0,0.35);
+}
+
+.wd-slot--other {
+  background: var(--bg-3);
+}
+
+.wd-slot--peekable {
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.wd-slot--mine.wd-slot--peekable:hover {
+  border-color: var(--blood-bright);
+}
+.wd-slot--other.wd-slot--peekable:hover {
+  border-color: var(--gold-dim);
+}
+
+.wd-slot__img {
+  width: 30px;
+  height: 42px;
+  border-radius: 3px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.wd-slot__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wd-slot__label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-dim);
+}
+
+.wd-slot__name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-h);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+}
+
+.wd-slot--withdrawn {
+  opacity: 0.45;
+  cursor: default !important;
+}
+
+.wd-slot__tokens {
+  font-size: 10px;
+  color: #6ab0f5;
+}
+
+.wd-slot__wd-badge {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* ── Decision buttons ── */
+
+.wd-loc__btns {
   display: flex;
   gap: 8px;
 }
 
-.withdraw__btn {
+.wd-btn {
+  flex: 1;
   background: var(--bg-3);
   border: 1px solid var(--border);
   border-radius: 4px;
-  color: var(--text);
-  padding: 6px 14px;
+  color: var(--text-dim);
+  padding: 6px 10px;
   font: inherit;
   font-size: 13px;
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
-
-.withdraw__btn:hover {
+.wd-btn:hover {
+  color: var(--text-h);
   border-color: var(--text-dim);
 }
 
-.withdraw__btn--active-stay {
+.wd-btn--stay {
   border-color: #4caf50;
   color: #4caf50;
+  background: rgba(76,175,80,0.08);
 }
-
-.withdraw__btn--active-out {
+.wd-btn--out {
   border-color: var(--gold);
   color: var(--gold);
+  background: rgba(201,162,39,0.08);
 }
+
+/* ── Submit button ── */
+
+.withdraw__submit {
+  margin-top: 4px;
+}
+
+/* ── Card Popup ── */
+
+.wd-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+}
+
+.wd-popup {
+  background: var(--bg-2);
+  border: 1px solid var(--gold-dim);
+  border-radius: 12px;
+  padding: 20px;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+}
+
+.wd-popup__img {
+  width: 110px;
+  aspect-ratio: 2/3;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.wd-popup__info {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wd-popup__type   { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; }
+.wd-popup__name   { font-size: 15px; font-weight: 700; color: var(--text-h); }
+.wd-popup__power  { font-size: 12px; color: var(--gold); }
+.wd-popup__effect { font-size: 12px; color: var(--text-h); line-height: 1.6; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px; }
+
+.wd-popup__close { width: 100%; font-size: 13px; }

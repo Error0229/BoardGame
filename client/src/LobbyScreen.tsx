@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { GameStateClient } from '@kindred/shared'
 import socket from './socket'
+import RulesModal from './RulesModal'
 import './LobbyScreen.css'
 
 interface Props {
@@ -13,6 +14,15 @@ export default function LobbyScreen({ myId, gameState, onError }: Props) {
   const [name, setName] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [view, setView] = useState<'home' | 'join'>('home')
+  const [showRules, setShowRules] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  function copyCode() {
+    if (!gameState) return
+    navigator.clipboard.writeText(gameState.roomCode)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   const inRoom = gameState !== null
   const players = inRoom ? Object.values(gameState.players) : []
@@ -39,10 +49,17 @@ export default function LobbyScreen({ myId, gameState, onError }: Props) {
 
   if (inRoom) {
     return (
+      <>
+        {showRules && <RulesModal onClose={() => setShowRules(false)} />}
       <div className="lobby-room">
         <div className="lobby-room__header">
           <span className="lobby-room__label">房間代碼</span>
-          <span className="lobby-room__code">{gameState.roomCode}</span>
+          <div className="lobby-room__code-row">
+            <span className="lobby-room__code">{gameState.roomCode}</span>
+            <button className="lobby-room__copy-btn" onClick={copyCode} title="複製代碼">
+              {copied ? '✓ 已複製' : '複製'}
+            </button>
+          </div>
         </div>
 
         <div className="lobby-room__players">
@@ -73,43 +90,65 @@ export default function LobbyScreen({ myId, gameState, onError }: Props) {
         {!isHost && canStart && (
           <div className="lobby-room__hint">等待房主開始遊戲…</div>
         )}
+
+        <button className="lobby-entry__rules-btn" onClick={() => setShowRules(true)}>
+          📖 查看遊戲規則
+        </button>
       </div>
+      </>
     )
   }
 
   return (
-    <div className="lobby-entry">
-      <div className="lobby-entry__name-row">
-        <input
-          placeholder="輸入你的名字"
-          value={name}
-          maxLength={16}
-          onChange={e => setName(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && (view === 'home' ? handleCreate() : handleJoin())}
-        />
-      </div>
+    <>
+      {showRules && <RulesModal onClose={() => setShowRules(false)} />}
 
-      {view === 'home' && (
-        <div className="lobby-entry__actions">
-          <button className="btn-primary" onClick={handleCreate}>建立房間</button>
-          <button className="btn-ghost" onClick={() => setView('join')}>加入房間</button>
+      <div className="lobby-entry">
+
+        {/* ── 遊戲標語 ── */}
+        <div className="lobby-entry__tagline">
+          <div className="lobby-entry__tagline-title">血與背叛</div>
+          <div className="lobby-entry__tagline-sub">3–6 人 · 3 回合 · 影響力最高者稱王</div>
         </div>
-      )}
 
-      {view === 'join' && (
-        <div className="lobby-entry__actions">
+        <div className="lobby-entry__name-row">
           <input
-            placeholder="房間代碼（4碼）"
-            value={joinCode}
-            maxLength={4}
-            onChange={e => setJoinCode(e.target.value.toUpperCase())}
-            onKeyDown={e => e.key === 'Enter' && handleJoin()}
-            style={{ textTransform: 'uppercase', letterSpacing: '4px', textAlign: 'center' }}
+            placeholder="輸入你的名字"
+            value={name}
+            maxLength={16}
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && (view === 'home' ? handleCreate() : handleJoin())}
           />
-          <button className="btn-primary" onClick={handleJoin}>加入</button>
-          <button className="btn-ghost" onClick={() => setView('home')}>返回</button>
         </div>
-      )}
-    </div>
+
+        {view === 'home' && (
+          <div className="lobby-entry__actions">
+            <button className="btn-primary" onClick={handleCreate}>建立房間</button>
+            <button className="btn-ghost" onClick={() => setView('join')}>加入房間</button>
+          </div>
+        )}
+
+        {view === 'join' && (
+          <div className="lobby-entry__actions">
+            <input
+              placeholder="房間代碼（4碼）"
+              value={joinCode}
+              maxLength={4}
+              onChange={e => setJoinCode(e.target.value.toUpperCase())}
+              onKeyDown={e => e.key === 'Enter' && handleJoin()}
+              style={{ textTransform: 'uppercase', letterSpacing: '4px', textAlign: 'center' }}
+            />
+            <button className="btn-primary" onClick={handleJoin}>加入</button>
+            <button className="btn-ghost" onClick={() => setView('home')}>返回</button>
+          </div>
+        )}
+
+        {/* ── 規則按鈕 ── */}
+        <button className="lobby-entry__rules-btn" onClick={() => setShowRules(true)}>
+          📖 查看遊戲規則
+        </button>
+
+      </div>
+    </>
   )
 }

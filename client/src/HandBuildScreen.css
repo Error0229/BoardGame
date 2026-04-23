@@ -46,6 +46,34 @@
   color: var(--text-dim);
 }
 
+/* ── 類型分布 ── */
+.handbuild__dist {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.handbuild__dist-label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.handbuild__dist-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.handbuild__dist-tag--zero { opacity: 0.35; }
+
+.handbuild__dist-tag--conflict    { background: rgba(139,0,0,0.2);    color: var(--blood-bright); }
+.handbuild__dist-tag--preparation { background: rgba(107,76,154,0.2); color: #c9a8f0; }
+.handbuild__dist-tag--aftermath   { background: rgba(122,74,0,0.2);   color: #e8a030; }
+.handbuild__dist-tag--passive     { background: rgba(80,130,80,0.2);  color: #7ec87e; }
+
 /* ── Card Tile ── */
 
 /* ── Card Image ── */

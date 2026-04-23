@@ -5,6 +5,49 @@
   align-items: center;
 }
 
+/* ── 標語 ── */
+
+.lobby-entry__tagline {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.lobby-entry__tagline-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.lobby-entry__tagline-sub {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  letter-spacing: 1px;
+}
+
+/* ── 規則按鈕 ── */
+
+.lobby-entry__rules-btn {
+  margin-top: 8px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 13px;
+  padding: 8px 20px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  letter-spacing: 0.3px;
+}
+
+.lobby-entry__rules-btn:hover {
+  color: var(--gold);
+  border-color: var(--gold-dim);
+  background: rgba(201,162,39,0.05);
+}
+
 .lobby-entry__name-row input {
   width: 240px;
   font-size: 18px;
@@ -96,6 +139,29 @@
   background: var(--gold-dim);
   color: var(--gold);
   letter-spacing: 0.5px;
+}
+
+.lobby-room__code-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lobby-room__copy-btn {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.lobby-room__copy-btn:hover {
+  border-color: var(--gold-dim);
+  color: var(--gold);
 }
 
 .lobby-room__hint {
