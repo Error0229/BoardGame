@@ -23,6 +23,8 @@ export class GameEngine {
       phase: 'LOBBY',
       round: 0,
       ambitionHolder: '',
+      playerOrder: [],
+      currentTurnPlayerId: '',
       locations: LOCATIONS,
       players: {},
       deployments: Object.fromEntries(LOCATIONS.map(l => [l.id, []])),
@@ -213,6 +215,15 @@ export class GameEngine {
       : ([0, 2, 3, 4][s.round] ?? 4);
     this.log(`── 第 ${s.round} / 3 回合開始 ──`);
 
+    // 建立出牌順序（從 ambitionHolder 開始順序排列）
+    const playerIds = Object.keys(s.players);
+    const ambIdx = playerIds.indexOf(s.ambitionHolder);
+    s.playerOrder = ambIdx >= 0
+      ? [...playerIds.slice(ambIdx), ...playerIds.slice(0, ambIdx)]
+      : [...playerIds];
+    s.currentTurnPlayerId = s.playerOrder[0] ?? '';
+    this.log(`出牌順序：${s.playerOrder.map(id => s.players[id]?.name ?? id).join(' → ')}`);
+
     Object.values(s.players).forEach(p => {
       p.isReady = false;
       p.deploymentsLeft = deployLimit;
@@ -242,10 +253,14 @@ export class GameEngine {
     const p = s.players[playerId];
     if (!p || p.isReady) return false;
 
+    // 輪序控制：只有當前輪到的玩家才能部署
+    if (s.currentTurnPlayerId !== playerId) return false;
+
     if ('skip' in deploy) {
       p.isReady = true;
       p.deploymentsLeft = 0;
       this.log(`${p.name} 結束本回合部署`);
+      this.advanceTurn();
       return true;
     }
 
@@ -310,7 +325,27 @@ export class GameEngine {
       });
     });
 
+    // 部署完成後推進到下一位玩家
+    this.advanceTurn();
+
     return true;
+  }
+
+  private advanceTurn(): void {
+    const s = this.state;
+    // 取得仍未完成的玩家（按出牌順序）
+    const activePlayers = s.playerOrder.filter(pid => {
+      const p = s.players[pid];
+      return p && !p.isReady;
+    });
+    if (activePlayers.length === 0) {
+      s.currentTurnPlayerId = '';
+      return;
+    }
+    const currentIdx = activePlayers.indexOf(s.currentTurnPlayerId);
+    // 若當前玩家已不在 active 清單中（剛剛變 ready），indexOf 回傳 -1 → nextIdx = 0
+    const nextIdx = (currentIdx + 1) % activePlayers.length;
+    s.currentTurnPlayerId = activePlayers[nextIdx];
   }
 
   // ─── Resolution ─────────────────────────────
@@ -379,6 +414,54 @@ export class GameEngine {
     return Object.values(this.state.players).every(p => p.isReady);
   }
 
+  // ─── Apply Withdrawals (pre-resolution step) ──────────────────
+  // Marks slots as withdrawn and returns blood tokens WITHOUT running combat.
+  // Called before resolveAllLocations() so players can see who withdrew first.
+  applyWithdrawals(): void {
+    const s = this.state;
+    for (const loc of s.locations) {
+      const choices = s.withdrawChoices[loc.id];
+      s.deployments[loc.id].forEach(slot => {
+        if (!choices[slot.playerId] || slot.withdrawn) return;
+        const p = s.players[slot.playerId];
+        if (!p) return;
+
+        // NO02: Cloak of Shadows
+        const no02Loc = LOCATIONS.find(l =>
+          s.deployments[l.id].some(sl => sl.cardId === 'NO02' && sl.playerId === slot.playerId && !sl.faceDown)
+        );
+        if (no02Loc && no02Loc.id !== loc.id) {
+          slot.withdrawn = true;
+          const existing = s.deployments[no02Loc.id].find(sl => sl.playerId === p.id && sl.cardId === slot.cardId);
+          if (existing) existing.bloodTokens += slot.bloodTokens;
+          else s.deployments[no02Loc.id].push({ ...slot, withdrawn: false });
+          this.log(`${p.name} 的陰影披風：撤退牌移至 ${no02Loc.name}`);
+          slot.bloodTokens = 0;
+          return;
+        }
+
+        // NO04: Feral Whispers
+        const no04Loc = LOCATIONS.find(l =>
+          s.deployments[l.id].some(sl => sl.cardId === 'NO04' && sl.playerId === slot.playerId && !sl.faceDown)
+        );
+        if (no04Loc && no04Loc.id !== loc.id) {
+          slot.withdrawn = true;
+          p.blood += slot.bloodTokens;
+          slot.bloodTokens = 0;
+          const no04Slot = s.deployments[no04Loc.id].find(sl => sl.playerId === p.id);
+          if (no04Slot) { no04Slot.bloodTokens += 2; }
+          else s.deployments[no04Loc.id].push({ playerId: p.id, cardId: '', faceDown: false, bloodTokens: 2, withdrawn: false, effectivePower: 0 });
+          this.log(`${p.name} 的野獸低語：撤退後 +2💧至 ${no04Loc.name}`);
+          return;
+        }
+
+        slot.withdrawn = true;
+        p.blood += slot.bloodTokens;
+        slot.bloodTokens = 0;
+      });
+    }
+  }
+
   // ─── Full Resolution ─────────────────────────
 
   resolveAllLocations(): ConflictResult[] {
@@ -387,10 +470,10 @@ export class GameEngine {
     const results: ConflictResult[] = [];
 
     for (const loc of s.locations) {
-      // Apply withdrawals
+      // Apply withdrawals — skip slots already handled by applyWithdrawals()
       const choices = s.withdrawChoices[loc.id];
       s.deployments[loc.id].forEach(slot => {
-        if (!choices[slot.playerId]) return;
+        if (!choices[slot.playerId] || slot.withdrawn) return;
         const p = s.players[slot.playerId];
         if (!p) return;
 
@@ -473,13 +556,17 @@ export class GameEngine {
       locationId: loc.id,
       winner: null, second: null,
       scores: {}, influenceGained: {},
-      bloodEvents: [], tie: false,
+      bloodEvents: [],
+      stepEvents: { prepare: [], conflict: [], aftermath: [] },
+      tie: false,
     };
 
     if (active.length === 0) return result;
 
     // ── Preparation effects ──────────────────────
+    const prepStart = result.bloodEvents.length;
     this.applyPreparation(loc.id, active, result);
+    result.stepEvents.prepare = result.bloodEvents.slice(prepStart);
 
     // ── Compute effective power ──────────────────
     active.forEach(slot => {
@@ -489,7 +576,9 @@ export class GameEngine {
     });
 
     // ── Conflict card effects ────────────────────
+    const conflStart = result.bloodEvents.length;
     this.applyConflict(loc.id, active, result);
+    result.stepEvents.conflict = result.bloodEvents.slice(conflStart);
 
     // ── Determine winner ─────────────────────────
     const playerIds = [...new Set(active.map(sl => sl.playerId))];
@@ -558,7 +647,9 @@ export class GameEngine {
     }
 
     // ── Aftermath effects ───────────────────────
+    const afterStart = result.bloodEvents.length;
     this.applyAftermath(loc.id, active, result);
+    result.stepEvents.aftermath = result.bloodEvents.slice(afterStart);
 
     return result;
   }
@@ -956,10 +1047,11 @@ export class GameEngine {
           break;
         }
         case 'GA01': { // Earth Meld: reclaim own deployed blood
-          p.blood += slot.bloodTokens;
+          const recovered = slot.bloodTokens;
+          p.blood += recovered;
           slot.bloodTokens = 0;
-          result.bloodEvents.push(`${p.name} 融入大地：回收${slot.bloodTokens}💧`);
-          this.log(`${p.name} 的融入大地回收部署血液`);
+          result.bloodEvents.push(`${p.name} 融入大地：回收${recovered}💧`);
+          this.log(`${p.name} 的融入大地回收 ${recovered} 部署血液`);
           break;
         }
         case 'GA07': { // Mist Form: 玩家選擇目標地點
@@ -1162,24 +1254,27 @@ export class GameEngine {
         this.log(`${causers[0].name} 的備戰(BR08)：額外 +1 影響力`);
       }
     }
-    // Drain random alliance card
-    if (player.alliance.length > 0) {
-      const shuffled = shuffle([...player.alliance]);
-      const drained = shuffled[0];
-      player.blood += drained.drainBlood;
-      if (drained.type === 'vampire') {
+    // Drain random alliance card (prioritise undrained ones)
+    const undrainedAllies = player.alliance.filter(a => !a.drained);
+    const allyPool = undrainedAllies.length > 0 ? undrainedAllies : player.alliance;
+    if (allyPool.length > 0) {
+      const shuffled = shuffle([...allyPool]);
+      const forceDrained = shuffled[0];
+      forceDrained.drained = true;       // 標記為已汲取，防止再次汲取
+      player.blood += forceDrained.drainBlood;
+      if (forceDrained.type === 'vampire') {
         player.diablerie++;
-        this.log(`${player.name} 強制汲取了 ${drained.name}（弒親！弒親代幣: ${player.diablerie}）`);
+        this.log(`${player.name} 強制汲取了 ${forceDrained.name}（弒親！弒親代幣: ${player.diablerie}）`);
         if (player.diablerie >= 3) {
           this.log(`${player.name} 弒親代幣達 3！被淘汰出局！`);
           delete this.state.players[player.id];
           return;
         }
       } else {
-        this.log(`${player.name} 強制汲取了 ${drained.name}`);
+        this.log(`${player.name} 強制汲取了 ${forceDrained.name}（+${forceDrained.drainBlood}💧）`);
       }
     } else {
-      player.blood = 1; // get 1 from bank if no alliance
+      player.blood = 1; // 無同盟牌，從銀行取 1 血
     }
   }
 
@@ -1503,6 +1598,8 @@ export class GameEngine {
       phase: s.phase,
       round: s.round,
       ambitionHolder: s.ambitionHolder,
+      playerOrder: s.playerOrder,
+      currentTurnPlayerId: s.currentTurnPlayerId,
       locations: s.locations,
       players: publicPlayers,
       myHand: me?.hand ?? [],
@@ -1524,7 +1621,7 @@ export class GameEngine {
     return LOCATIONS.find(l => l.id === id)?.name ?? id;
   }
 
-  private log(msg: string): void {
+  log(msg: string): void {
     const ts = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     this.state.log.push(`[${ts}] ${msg}`);
   }

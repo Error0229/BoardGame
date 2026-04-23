@@ -124,6 +124,12 @@ export interface ConflictResult {
   scores: Record<string, number>;
   influenceGained: Record<string, number>;
   bloodEvents: string[];
+  /** 分步驟的效果紀錄，供 UI 逐步顯示用 */
+  stepEvents: {
+    prepare: string[];
+    conflict: string[];
+    aftermath: string[];
+  };
   tie: boolean;
 }
 
@@ -134,6 +140,8 @@ export interface GameStateFull {
   phase: GamePhase;
   round: number;
   ambitionHolder: string;
+  playerOrder: string[];        // 出牌順序（從 ambitionHolder 開始）
+  currentTurnPlayerId: string;  // 當前輪到出牌的玩家
   locations: LocationDef[];
   players: Record<string, PlayerPrivate>;
   deployments: Record<string, SlotFull[]>;
@@ -155,6 +163,8 @@ export interface GameStateClient {
   phase: GamePhase;
   round: number;
   ambitionHolder: string;
+  playerOrder: string[];        // 出牌順序（從 ambitionHolder 開始）
+  currentTurnPlayerId: string;  // 當前輪到出牌的玩家
   locations: LocationDef[];
   players: Record<string, PlayerPublic>;
   myHand: CardDef[];

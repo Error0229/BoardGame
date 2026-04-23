@@ -43,7 +43,9 @@ function tryAdvance(roomCode: string) {
   const s = game.state;
 
   if (s.phase === 'CLAN_SELECT' && game.allClansSelected()) {
-    s.ambitionHolder = Object.keys(s.players)[0];
+    const playerIds = Object.keys(s.players);
+    s.ambitionHolder = playerIds[Math.floor(Math.random() * playerIds.length)];
+    game.log(`隨機選出先手玩家：${s.players[s.ambitionHolder]?.name}`);
     game.startHandBuild();
     broadcast(roomCode);
     return;
@@ -70,19 +72,26 @@ function finishResolution(roomCode: string) {
   const game = rooms.get(roomCode);
   if (!game) return;
 
-  // 短暫閃示「翻牌！」再結算
-  game.state.phase = 'REVELATION';
-  broadcast(roomCode);
+  // Step 1: Apply withdrawals immediately while still in WITHDRAW phase.
+  // Clients see the full battlefield with withdrawn cards marked (faded/struck).
+  game.applyWithdrawals();
+  broadcast(roomCode); // phase still = WITHDRAW; withdrawn slots now visible
 
+  // Step 2: After 1.5 s, move to REVELATION for full resolution.
   setTimeout(() => {
-    // 掃描需要玩家選擇的卡牌（VE03 宵禁令、VE05 大規模操控）
-    game.setupPendingChoices();
-    if (game.state.pendingChoices.length > 0) {
-      game.state.phase = 'REVELATION'; // 確保 client 顯示選擇 Modal
-      broadcast(roomCode);
-      return;
-    }
-    runResolution(roomCode);
+    game.state.phase = 'REVELATION';
+    broadcast(roomCode);
+
+    setTimeout(() => {
+      // 掃描需要玩家選擇的卡牌（VE03 宵禁令、VE05 大規模操控）
+      game.setupPendingChoices();
+      if (game.state.pendingChoices.length > 0) {
+        game.state.phase = 'REVELATION';
+        broadcast(roomCode);
+        return;
+      }
+      runResolution(roomCode);
+    }, 500);
   }, 1500);
 }
 
