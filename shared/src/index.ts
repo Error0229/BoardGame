@@ -140,8 +140,10 @@ export interface GameStateFull {
   phase: GamePhase;
   round: number;
   ambitionHolder: string;
-  playerOrder: string[];        // 出牌順序（從 ambitionHolder 開始）
-  currentTurnPlayerId: string;  // 當前輪到出牌的玩家
+  playerOrder: string[];
+  currentTurnPlayerId: string;
+  currentLocIndex: number;       // 當前結算中的地點索引（-1 = 未在結算）
+  currentLocResolved: boolean;   // 當前地點的戰鬥是否已結算完
   locations: LocationDef[];
   players: Record<string, PlayerPrivate>;
   deployments: Record<string, SlotFull[]>;
@@ -153,7 +155,7 @@ export interface GameStateFull {
   winner: string | null;
   log: string[];
   pendingChoices: PendingChoice[];
-  resolvedChoices: Record<string, string>; // choiceKey → option
+  resolvedChoices: Record<string, string>;
 }
 
 // ─── Client 收到的狀態 ────────────────────────
@@ -163,8 +165,9 @@ export interface GameStateClient {
   phase: GamePhase;
   round: number;
   ambitionHolder: string;
-  playerOrder: string[];        // 出牌順序（從 ambitionHolder 開始）
-  currentTurnPlayerId: string;  // 當前輪到出牌的玩家
+  playerOrder: string[];
+  currentTurnPlayerId: string;
+  currentLocIndex: number;       // 當前結算中的地點索引（-1 = 未在結算）
   locations: LocationDef[];
   players: Record<string, PlayerPublic>;
   myHand: CardDef[];
@@ -194,6 +197,7 @@ export interface ClientToServer {
   drainAlly: (allyId: string) => void;               // 汲取同盟牌
   readyAdvance: () => void;                          // REVELATION/ROUND_END 確認繼續
   respondChoice: (payload: { choiceId: string; option: string }) => void;
+  watchRoom: (code: string) => void;                 // 觀戰：加入房間但不參與
   chat: (msg: string) => void;
 }
 
