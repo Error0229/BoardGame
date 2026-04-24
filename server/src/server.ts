@@ -23,15 +23,24 @@ function broadcast(roomCode: string) {
   const game = rooms.get(roomCode);
   if (!game) return;
   const ready = advanceReady.get(roomCode);
-  Object.keys(game.state.players).forEach(pid => {
+  const playerIds = new Set(Object.keys(game.state.players));
+
+  // 廣播給玩家（個人化狀態）
+  playerIds.forEach(pid => {
     const socket = io.sockets.sockets.get(pid);
     if (!socket) return;
     const state = game.getClientState(pid);
-    // 在 REVELATION / ROUND_END 時，用 waitingFor 表示「還未點確認」的玩家
     if (ready && ['REVELATION', 'ROUND_END'].includes(state.phase)) {
       state.waitingFor = Object.keys(game.state.players).filter(id => !ready.has(id));
     }
     socket.emit('gameState', state);
+  });
+
+  // 廣播給觀戰者（房間內非玩家的 socket）
+  const spectatorState = game.getSpectatorState();
+  io.sockets.adapter.rooms.get(roomCode)?.forEach(sid => {
+    if (playerIds.has(sid)) return;
+    io.sockets.sockets.get(sid)?.emit('gameState', spectatorState);
   });
 }
 
@@ -58,26 +67,25 @@ function tryAdvance(roomCode: string) {
   }
 
   if (s.phase === 'PLANNING' && game.allDeployed()) {
-    game.startWithdraw();
+    game.startResolutionPhase();
     broadcast(roomCode);
     return;
   }
 
   if (s.phase === 'WITHDRAW' && game.allWithdrawSubmitted()) {
-    finishResolution(roomCode);
+    finishLocWithdraw(roomCode);
   }
 }
 
-function finishResolution(roomCode: string) {
+function finishLocWithdraw(roomCode: string) {
   const game = rooms.get(roomCode);
   if (!game) return;
 
-  // Step 1: Apply withdrawals immediately while still in WITHDRAW phase.
-  // Clients see the full battlefield with withdrawn cards marked (faded/struck).
+  // Step 1: Apply withdrawals for current location; clients see withdrawn slots.
   game.applyWithdrawals();
   broadcast(roomCode); // phase still = WITHDRAW; withdrawn slots now visible
 
-  // Step 2: After 1.5 s, move to REVELATION for full resolution.
+  // Step 2: After 1.5 s, move to REVELATION for this location's resolution.
   setTimeout(() => {
     game.state.phase = 'REVELATION';
     broadcast(roomCode);
@@ -86,24 +94,23 @@ function finishResolution(roomCode: string) {
       // 掃描需要玩家選擇的卡牌（VE03 宵禁令、VE05 大規模操控）
       game.setupPendingChoices();
       if (game.state.pendingChoices.length > 0) {
-        game.state.phase = 'REVELATION';
         broadcast(roomCode);
         return;
       }
-      runResolution(roomCode);
+      runCurrentLocResolution(roomCode);
     }, 500);
   }, 1500);
 }
 
-function runResolution(roomCode: string) {
+function runCurrentLocResolution(roomCode: string) {
   const game = rooms.get(roomCode);
   if (!game) return;
-  game.resolveAllLocations();
+  game.resolveCurrentLocation();
 
-  // 結算後檢查 VE09 等需要勝者選擇的效果
+  // 結算後檢查 VE09 等需要勝者選擇的效果（僅最後一筆結果）
   game.setupPostResolutionChoices();
   if (game.state.pendingChoices.length > 0) {
-    game.state.phase = 'REVELATION'; // 讓 client 顯示結果 + choice modal
+    game.state.phase = 'REVELATION';
     broadcast(roomCode);
     return;
   }
@@ -130,6 +137,14 @@ function checkAdvanceReady(roomCode: string) {
   advanceReady.delete(roomCode);
 
   if (game.state.phase === 'REVELATION') {
+    // If more locations remain, advance to the next one's withdraw phase
+    if (game.hasMoreLocations()) {
+      advanceReady.delete(roomCode);
+      game.advanceToNextLocation();
+      broadcast(roomCode);
+      return;
+    }
+    // All locations resolved — end the round
     game.endRound();
     broadcast(roomCode);
     if ((game.state.phase as string) === 'GAME_OVER') return;
@@ -182,7 +197,7 @@ io.on('connection', (socket: Socket) => {
     const game = rooms.get(code);
     if (!game || game.state.phase !== 'LOBBY') return;
     const players = Object.values(game.state.players);
-    if (players.length < 3) { socket.emit('error', '至少需要 3 名玩家'); return; }
+    if (players.length < 2) { socket.emit('error', '至少需要 2 名玩家'); return; }
     // Only host (first player) can start
     if (players[0].id !== socket.id) { socket.emit('error', '只有房主可以開始遊戲'); return; }
     game.startClanSelect();
@@ -254,11 +269,11 @@ io.on('connection', (socket: Socket) => {
     game.applyPendingChoice(choiceId, option);
     broadcast(code);
     if (game.state.pendingChoices.length === 0) {
-      // 判斷現在是 pre-resolution 還是 post-resolution
-      if (game.state.lastConflictResults.length === 0) {
-        runResolution(code);       // 尚未結算 → 執行結算
+      // 判斷現在是 pre-resolution 還是 post-resolution（用 currentLocResolved）
+      if (!game.state.currentLocResolved) {
+        runCurrentLocResolution(code);  // 尚未結算 → 執行結算
       } else {
-        finishReveal(code);        // 已結算 → 顯示結果
+        finishReveal(code);             // 已結算 → 顯示結果
       }
     }
   });
@@ -279,6 +294,15 @@ io.on('connection', (socket: Socket) => {
     checkAdvanceReady(code);
   });
 
+  socket.on('watchRoom', (code: string) => {
+    const game = rooms.get(code.toUpperCase());
+    if (!game) { socket.emit('error', '找不到房間'); return; }
+    socket.join(code.toUpperCase());
+    // 觀戰者收到的狀態：所有牌面朝上（isRevealed = true），沒有私人手牌
+    socket.emit('gameState', game.getSpectatorState());
+    console.log(`[spectator] ${socket.id} watching ${code}`);
+  });
+
   socket.on('chat', (msg: string) => {
     const code = playerRoom.get(socket.id);
     if (!code) return;
@@ -293,8 +317,10 @@ io.on('connection', (socket: Socket) => {
     if (code) {
       const game = rooms.get(code);
       if (game) {
+        game.handlePlayerLeft(socket.id);
         game.removePlayer(socket.id);
         broadcast(code);
+        tryAdvance(code);
         if (Object.keys(game.state.players).length === 0) {
           rooms.delete(code);
           console.log(`[cleanup] room ${code} empty, removed`);

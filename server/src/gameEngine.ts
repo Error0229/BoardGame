@@ -1,7 +1,7 @@
 import {
-  GameStateFull, GameStateClient, GamePhase,
+  GameStateFull, GameStateClient,
   PlayerPrivate, SlotFull, SlotVisible,
-  ConflictResult, Deployment, ClanId, CardDef, AllyCard, LocationDef,
+  ConflictResult, Deployment, ClanId, CardDef, LocationDef,
   PendingChoice,
 } from '@kindred/shared';
 import {
@@ -25,6 +25,8 @@ export class GameEngine {
       ambitionHolder: '',
       playerOrder: [],
       currentTurnPlayerId: '',
+      currentLocIndex: -1,
+      currentLocResolved: false,
       locations: LOCATIONS,
       players: {},
       deployments: Object.fromEntries(LOCATIONS.map(l => [l.id, []])),
@@ -57,6 +59,45 @@ export class GameEngine {
   removePlayer(id: string): void {
     const p = this.state.players[id];
     if (p) { this.log(`${p.name} 離開了房間`); delete this.state.players[id]; }
+  }
+
+  /** 斷線後清理：更新輪序、移轉野心代幣、若輪到此人則推進 */
+  handlePlayerLeft(playerId: string): void {
+    const s = this.state;
+    s.playerOrder = s.playerOrder.filter(pid => pid !== playerId);
+    if (s.ambitionHolder === playerId) {
+      s.ambitionHolder = s.playerOrder.find(pid => s.players[pid]) ?? '';
+      if (s.ambitionHolder) this.log(`${s.players[s.ambitionHolder]?.name} 繼承野心代幣`);
+    }
+    if (s.phase === 'PLANNING' && s.currentTurnPlayerId === playerId) {
+      this.advanceTurn();
+    }
+  }
+
+  /** 弒親 / 狂暴淘汰統一入口 */
+  private eliminatePlayer(playerId: string): void {
+    const s = this.state;
+    const p = s.players[playerId];
+    if (!p) return;
+    this.log(`☠️ ${p.name} 因弒親代幣達 3，被逐出芝加哥！`);
+    // 清除此玩家的部署
+    for (const loc of s.locations) {
+      s.deployments[loc.id] = s.deployments[loc.id].filter(sl => sl.playerId !== playerId);
+    }
+    // 更新輪序與野心代幣
+    s.playerOrder = s.playerOrder.filter(pid => pid !== playerId);
+    if (s.ambitionHolder === playerId) {
+      s.ambitionHolder = s.playerOrder.find(pid => s.players[pid]) ?? '';
+      if (s.ambitionHolder) this.log(`${s.players[s.ambitionHolder]?.name} 繼承野心代幣`);
+    }
+    const wasCurrent = s.currentTurnPlayerId === playerId;
+    delete s.players[playerId];
+    // 若只剩 1 名玩家，直接結束遊戲
+    if (Object.keys(s.players).length <= 1) {
+      this.endGame();
+      return;
+    }
+    if (wasCurrent) this.advanceTurn();
   }
 
   selectClan(playerId: string, clan: ClanId): boolean {
@@ -175,10 +216,11 @@ export class GameEngine {
     // 汲取吸血鬼盟友需承受弒親代幣
     if (ally.type === 'vampire') {
       p.diablerie += 1;
-      this.log(`${p.name} 汲取 ${ally.name}（吸血鬼）→ +${ally.drainBlood}💧，承受 1 弒親代幣`);
+      this.log(`${p.name} 汲取 ${ally.name}（吸血鬼）→ +${ally.drainBlood}💧，承受 1 弒親代幣（共 ${p.diablerie}）`);
       if (p.diablerie >= 3) {
-        this.log(`⚠️ ${p.name} 弒親代幣達 3 個，被淘汰！`);
-        // TODO: 淘汰邏輯
+        p.allianceCount = p.alliance.length;
+        this.eliminatePlayer(p.id);
+        return true;
       }
     } else {
       this.log(`${p.name} 汲取 ${ally.name} → +${ally.drainBlood}💧`);
@@ -228,9 +270,9 @@ export class GameEngine {
       p.isReady = false;
       p.deploymentsLeft = deployLimit;
 
-      // Feed phase: gain blood from alliance
+      // Feed phase: gain blood from alliance (cap at 13)
       const feedGain = p.alliance.reduce((sum, a) => sum + a.feedBlood, 0);
-      p.blood += feedGain;
+      p.blood = Math.min(13, p.blood + feedGain);
       if (feedGain > 0) this.log(`${p.name} 從同盟獲得 +${feedGain} 血液`);
 
       // Feed phase: reset drained allies (回合結束後可再次使用)
@@ -275,7 +317,20 @@ export class GameEngine {
     if (p.blood < totalBloodCost) return false;
 
     p.blood -= totalBloodCost;
-    const card = p.hand.splice(cardIdx, 1)[0];
+
+    // TR04: Dark Pact — 消耗血液改部署至 TR04 所在地點
+    if (totalBloodCost > 0) {
+      for (const [locId, slots] of Object.entries(s.deployments)) {
+        const tr04Slot = slots.find(sl => sl.cardId === 'TR04' && sl.playerId === playerId && !sl.faceDown);
+        if (tr04Slot && locId !== locationId) {
+          tr04Slot.bloodTokens += totalBloodCost;
+          this.log(`${p.name} 黑暗契約：${totalBloodCost}💧 部署至 ${this.locName(locId)}`);
+          break;
+        }
+      }
+    }
+
+    p.hand.splice(cardIdx, 1);
     p.handCount = p.hand.length;
 
     s.deployments[locationId].push({
@@ -289,7 +344,7 @@ export class GameEngine {
       p.deploymentsLeft = 0;
     }
 
-    this.log(`${p.name} 在 ${this.locName(locationId)} ${faceDown ? '秘密' : ''}部署了一張牌${bloodTokens > 0 ? `（+${bloodTokens}💧）` : ''}`);
+    this.log(`${p.name} 在 ${this.locName(locationId)} ${faceDown ? '秘密' : ''}部署了一張牌${bloodTokens > 0 ? `（+${bloodTokens}💧）` : ''}${p.isReady ? '（手牌耗盡）' : ''}`);
 
     // ── PLANNING 被動觸發 ────────────────────────────────────────────
 
@@ -325,7 +380,7 @@ export class GameEngine {
       });
     });
 
-    // 部署完成後推進到下一位玩家
+    // 每出一張牌就推進到下一位（round-robin）
     this.advanceTurn();
 
     return true;
@@ -350,13 +405,14 @@ export class GameEngine {
 
   // ─── Resolution ─────────────────────────────
 
-  startWithdraw(): void {
+  // 進入結算階段的入口：先觸發 VE01，再從第一個地點開始撤退
+  startResolutionPhase(): void {
     const s = this.state;
-    s.phase = 'WITHDRAW';
-    Object.values(s.players).forEach(p => (p.isReady = false));
+    s.lastConflictResults = [];
+    s.withdrawChoices = Object.fromEntries(s.locations.map(l => [l.id, {}]));
 
     // VE01: Master Plan — 規劃結束時，此地點無部署的對手失去 1 影響力
-    LOCATIONS.forEach(loc => {
+    s.locations.forEach(loc => {
       const ve01Slot = s.deployments[loc.id].find(sl => sl.cardId === 'VE01' && !sl.faceDown);
       if (!ve01Slot) return;
       const owner = s.players[ve01Slot.playerId];
@@ -371,13 +427,39 @@ export class GameEngine {
       });
     });
 
-    // Players with no deployments anywhere are auto-ready
+    s.currentLocIndex = -1;
+    this.advanceToNextLocation();
+  }
+
+  // 開始某個地點的撤退階段
+  startLocWithdraw(locIndex: number): void {
+    const s = this.state;
+    const loc = s.locations[locIndex];
+    if (!loc) return;
+
+    s.phase = 'WITHDRAW';
+    s.currentLocIndex = locIndex;
+    s.currentLocResolved = false;
+    Object.values(s.players).forEach(p => (p.isReady = false));
+
+    // 在此地點沒有部署的玩家自動 ready
     Object.values(s.players).forEach(p => {
-      const hasAny = LOCATIONS.some(loc =>
-        s.deployments[loc.id].some(sl => sl.playerId === p.id)
-      );
-      if (!hasAny) p.isReady = true;
+      const hasHere = s.deployments[loc.id].some(sl => sl.playerId === p.id && !sl.withdrawn);
+      if (!hasHere) p.isReady = true;
     });
+
+    this.log(`【${loc.name}】撤退階段`);
+  }
+
+  hasMoreLocations(): boolean {
+    const s = this.state;
+    return s.locations.some((loc, i) => i > s.currentLocIndex && s.deployments[loc.id]?.some(sl => !sl.withdrawn));
+  }
+
+  advanceToNextLocation(): void {
+    const s = this.state;
+    const nextIdx = s.locations.findIndex((loc, i) => i > s.currentLocIndex && s.deployments[loc.id]?.some(sl => !sl.withdrawn));
+    if (nextIdx !== -1) this.startLocWithdraw(nextIdx);
   }
 
   submitWithdraw(playerId: string, locationId: string, withdraw: boolean): boolean {
@@ -386,26 +468,20 @@ export class GameEngine {
     const p = s.players[playerId];
     if (!p) return false;
 
-    const hasDeployment = s.deployments[locationId].some(sl => sl.playerId === playerId);
+    // 只接受當前結算地點的選擇
+    const currentLoc = s.locations[s.currentLocIndex];
+    if (!currentLoc || locationId !== currentLoc.id) return false;
+
+    const hasDeployment = s.deployments[locationId].some(sl => sl.playerId === playerId && !sl.withdrawn);
     if (!hasDeployment) return true;
 
     s.withdrawChoices[locationId][playerId] = withdraw;
 
-    // Check if this player has responded for all their locations
-    const allAnswered = LOCATIONS.every(loc => {
-      const hasSlot = s.deployments[loc.id].some(sl => sl.playerId === playerId);
-      return !hasSlot || loc.id in s.withdrawChoices[loc.id] || playerId in s.withdrawChoices[loc.id];
-    });
-
     if (withdraw) this.log(`${p.name} 在 ${this.locName(locationId)} 選擇撤退`);
     else this.log(`${p.name} 在 ${this.locName(locationId)} 選擇留守`);
 
-    // Mark player ready once they've answered for ALL their locations
-    const pendingLocs = LOCATIONS.filter(loc =>
-      s.deployments[loc.id].some(sl => sl.playerId === playerId) &&
-      !(playerId in s.withdrawChoices[loc.id])
-    );
-    if (pendingLocs.length === 0) p.isReady = true;
+    // 此地點已作答即標記 ready
+    p.isReady = true;
 
     return true;
   }
@@ -416,108 +492,101 @@ export class GameEngine {
 
   // ─── Apply Withdrawals (pre-resolution step) ──────────────────
   // Marks slots as withdrawn and returns blood tokens WITHOUT running combat.
-  // Called before resolveAllLocations() so players can see who withdrew first.
+  // Called before resolveCurrentLocation() so players can see who withdrew first.
   applyWithdrawals(): void {
     const s = this.state;
-    for (const loc of s.locations) {
-      const choices = s.withdrawChoices[loc.id];
-      s.deployments[loc.id].forEach(slot => {
-        if (!choices[slot.playerId] || slot.withdrawn) return;
-        const p = s.players[slot.playerId];
-        if (!p) return;
+    const haven = s.deployments['haven'];
 
-        // NO02: Cloak of Shadows
-        const no02Loc = LOCATIONS.find(l =>
-          s.deployments[l.id].some(sl => sl.cardId === 'NO02' && sl.playerId === slot.playerId && !sl.faceDown)
+    // 只處理當前結算地點
+    const locations = [s.locations[s.currentLocIndex]].filter(Boolean);
+    for (const loc of locations) {
+      const choices = s.withdrawChoices[loc.id];
+      const withdrawingIds = [...new Set(
+        s.deployments[loc.id]
+          .filter(sl => choices[sl.playerId] && !sl.withdrawn)
+          .map(sl => sl.playerId)
+      )];
+
+      for (const playerId of withdrawingIds) {
+        const p = s.players[playerId];
+        if (!p) continue;
+
+        const mySlots = s.deployments[loc.id].filter(sl => sl.playerId === playerId && !sl.withdrawn);
+        if (mySlots.length === 0) continue;
+
+        // 王子之地撤退：牌與血液全部取回，不參與戰鬥
+        if (loc.isPrinces) {
+          mySlots.forEach(sl => {
+            sl.withdrawn = true;
+            p.blood += sl.bloodTokens;
+            sl.bloodTokens = 0;
+            // 牌在 endRound 時自動回手
+          });
+          this.log(`${p.name} 從王子之地撤退，取回所有牌與血液`);
+          continue;
+        }
+
+        // NO02: Cloak of Shadows — 移至 NO02 所在地點（翻開，血液歸還）
+        const no02Loc = s.locations.find(l =>
+          s.deployments[l.id].some(sl => sl.cardId === 'NO02' && sl.playerId === playerId && !sl.faceDown)
         );
         if (no02Loc && no02Loc.id !== loc.id) {
-          slot.withdrawn = true;
-          const existing = s.deployments[no02Loc.id].find(sl => sl.playerId === p.id && sl.cardId === slot.cardId);
-          if (existing) existing.bloodTokens += slot.bloodTokens;
-          else s.deployments[no02Loc.id].push({ ...slot, withdrawn: false });
+          mySlots.forEach(sl => {
+            sl.withdrawn = true;
+            const existing = s.deployments[no02Loc.id].find(ex => ex.playerId === playerId && ex.cardId === sl.cardId);
+            if (existing) existing.bloodTokens += sl.bloodTokens;
+            else s.deployments[no02Loc.id].push({ ...sl, faceDown: false, bloodTokens: sl.bloodTokens, withdrawn: false });
+            sl.bloodTokens = 0;
+          });
           this.log(`${p.name} 的陰影披風：撤退牌移至 ${no02Loc.name}`);
-          slot.bloodTokens = 0;
-          return;
+          continue;
         }
 
-        // NO04: Feral Whispers
-        const no04Loc = LOCATIONS.find(l =>
-          s.deployments[l.id].some(sl => sl.cardId === 'NO04' && sl.playerId === slot.playerId && !sl.faceDown)
+        // NO04: Feral Whispers — 血液歸還玩家，+2💧至 NO04 地點
+        const no04Loc = s.locations.find(l =>
+          s.deployments[l.id].some(sl => sl.cardId === 'NO04' && sl.playerId === playerId && !sl.faceDown)
         );
         if (no04Loc && no04Loc.id !== loc.id) {
-          slot.withdrawn = true;
-          p.blood += slot.bloodTokens;
-          slot.bloodTokens = 0;
-          const no04Slot = s.deployments[no04Loc.id].find(sl => sl.playerId === p.id);
-          if (no04Slot) { no04Slot.bloodTokens += 2; }
+          mySlots.forEach(sl => {
+            sl.withdrawn = true;
+            p.blood += sl.bloodTokens;
+            sl.bloodTokens = 0;
+          });
+          const no04Slot = s.deployments[no04Loc.id].find(sl => sl.playerId === playerId);
+          if (no04Slot) no04Slot.bloodTokens += 2;
           else s.deployments[no04Loc.id].push({ playerId: p.id, cardId: '', faceDown: false, bloodTokens: 2, withdrawn: false, effectivePower: 0 });
           this.log(`${p.name} 的野獸低語：撤退後 +2💧至 ${no04Loc.name}`);
-          return;
+          continue;
         }
 
-        slot.withdrawn = true;
-        p.blood += slot.bloodTokens;
-        slot.bloodTokens = 0;
-      });
+        // 預設：血液歸還，牌翻成正面移往王子之地
+        mySlots.forEach(sl => {
+          sl.withdrawn = true;
+          p.blood += sl.bloodTokens;
+          haven.push({ ...sl, faceDown: false, bloodTokens: 0, withdrawn: false });
+        });
+        this.log(`${p.name} 在 ${loc.name} 撤退，取回血液，牌翻開移至王子之地`);
+      }
     }
   }
 
   // ─── Full Resolution ─────────────────────────
 
-  resolveAllLocations(): ConflictResult[] {
+  // 結算當前地點（逐地點流程用）
+  resolveCurrentLocation(): ConflictResult {
     const s = this.state;
-    s.lastConflictResults = []; // 清空，供 post-resolution choice 判斷用
-    const results: ConflictResult[] = [];
+    const loc = s.locations[s.currentLocIndex];
+    if (!loc) return { locationId: '', winner: null, second: null, scores: {}, influenceGained: {}, bloodEvents: [], stepEvents: { prepare: [], conflict: [], aftermath: [] }, tie: false };
 
-    for (const loc of s.locations) {
-      // Apply withdrawals — skip slots already handled by applyWithdrawals()
-      const choices = s.withdrawChoices[loc.id];
-      s.deployments[loc.id].forEach(slot => {
-        if (!choices[slot.playerId] || slot.withdrawn) return;
-        const p = s.players[slot.playerId];
-        if (!p) return;
+    s.currentLocResolved = true;
+    const result = this.resolveLocation(loc);
+    s.lastConflictResults.push(result);
 
-        // NO02: Cloak of Shadows — 撤退時，改將卡牌與血液移至 NO02 所在地點
-        const no02Loc = LOCATIONS.find(l =>
-          s.deployments[l.id].some(sl => sl.cardId === 'NO02' && sl.playerId === slot.playerId && !sl.faceDown)
-        );
-        if (no02Loc && no02Loc.id !== loc.id) {
-          slot.withdrawn = true;
-          const existing = s.deployments[no02Loc.id].find(sl => sl.playerId === p.id && sl.cardId === slot.cardId);
-          if (existing) existing.bloodTokens += slot.bloodTokens;
-          else s.deployments[no02Loc.id].push({ ...slot, withdrawn: false });
-          this.log(`${p.name} 的陰影披風：撤退牌移至 ${no02Loc.name}`);
-          return;
-        }
-
-        // NO04: Feral Whispers — 撤退時，每張移動的牌在 NO04 地點獲得 +2 血液代幣
-        const no04Loc = LOCATIONS.find(l =>
-          s.deployments[l.id].some(sl => sl.cardId === 'NO04' && sl.playerId === slot.playerId && !sl.faceDown)
-        );
-        if (no04Loc && no04Loc.id !== loc.id) {
-          slot.withdrawn = true;
-          p.blood += slot.bloodTokens;
-          const no04Slot = s.deployments[no04Loc.id].find(sl => sl.playerId === p.id);
-          if (no04Slot) { no04Slot.bloodTokens += 2; }
-          else s.deployments[no04Loc.id].push({ playerId: p.id, cardId: '', faceDown: false, bloodTokens: 2, withdrawn: false, effectivePower: 0 });
-          this.log(`${p.name} 的野獸低語：撤退後 +2💧至 ${no04Loc.name}`);
-          return;
-        }
-
-        slot.withdrawn = true;
-        p.blood += slot.bloodTokens;
-      });
-
-      const result = this.resolveLocation(loc);
-      results.push(result);
-    }
-
-    s.lastConflictResults = results;
-
-    // Check frenzy for all players
+    // 血量上限 cap 13
+    Object.values(s.players).forEach(p => { p.blood = Math.min(13, p.blood); });
     Object.values(s.players).forEach(p => this.checkFrenzy(p));
 
-    return results;
+    return result;
   }
 
   /** 結算完成後，掃描需要勝者做選擇的效果（VE09）*/
@@ -525,7 +594,9 @@ export class GameEngine {
     const s = this.state;
     let n = s.pendingChoices.length;
 
-    for (const result of s.lastConflictResults) {
+    // Only process the most recently resolved location
+    const lastResult = s.lastConflictResults[s.lastConflictResults.length - 1];
+    for (const result of (lastResult ? [lastResult] : [])) {
       const locId = result.locationId;
       const active = s.deployments[locId]?.filter(sl=>!sl.withdrawn) ?? [];
       for (const slot of active) {
@@ -542,6 +613,15 @@ export class GameEngine {
             `【Ventrue 狩獵】${owner.name} 的狩獵效果：你需選擇：`,
             [{ key:'give_blood',     label_zh:`被偷取 ${take}💧` },
              { key:'give_influence', label_zh:'給予 1 影響力' }],
+            card.id, locId, slot.playerId, owner.name));
+        }
+
+        // NO09: 諾斯費拉圖狩獵 — 偷血後可選擇移至 Prince's Haven
+        if (card.id === 'NO09' && locId !== 'haven') {
+          s.pendingChoices.push(this.makeChoice(n++, slot.playerId,
+            `【諾斯費拉圖狩獵】將此牌移至王子避難所？`,
+            [{ key:'move_haven', label_zh:'移至王子避難所' },
+             { key:'stay',       label_zh:'留在此地點' }],
             card.id, locId, slot.playerId, owner.name));
         }
       }
@@ -562,6 +642,33 @@ export class GameEngine {
     };
 
     if (active.length === 0) return result;
+
+    // TO06: 精確血量快照 — 在所有效果前記錄 TO06 持有者的血量
+    const to06Snapshots: Record<string, number> = {};
+    active.forEach(slot => {
+      if (slot.cardId === 'TO06' && !slot.faceDown && !slot.withdrawn) {
+        const p = s.players[slot.playerId];
+        if (p) to06Snapshots[slot.playerId] = p.blood;
+      }
+    });
+
+    // TR06: 精確血量快照 — 記錄 TR06 持有者在效果前的血量
+    const tr06Snapshots: Record<string, number> = {};
+    active.forEach(slot => {
+      if (slot.cardId === 'TR06' && !slot.faceDown && !slot.withdrawn) {
+        const p = s.players[slot.playerId];
+        if (p) tr06Snapshots[slot.playerId] = p.blood;
+      }
+    });
+
+    // TR04: 精確血量快照 — 記錄 TR04 持有者在效果前的血量（用於效果觸發的失血重導向）
+    const tr04Snapshots: Record<string, number> = {};
+    active.forEach(slot => {
+      if (slot.cardId === 'TR04' && !slot.faceDown && !slot.withdrawn) {
+        const p = s.players[slot.playerId];
+        if (p) tr04Snapshots[slot.playerId] = p.blood;
+      }
+    });
 
     // ── Preparation effects ──────────────────────
     const prepStart = result.bloodEvents.length;
@@ -601,7 +708,7 @@ export class GameEngine {
 
     if (sorted.length >= 1) {
       const [firstId, firstScore] = sorted[0];
-      const [secondId, secondScore] = sorted[1] ?? [null, -1];
+      const [, ] = sorted[1] ?? [null, -1]; // secondId/secondScore unused; winner/second set via sorted[1][0]
 
       if (sorted.length >= 2 && firstScore === sorted[1][1] && firstId !== s.ambitionHolder && sorted[1][0] !== s.ambitionHolder) {
         result.tie = true;
@@ -649,6 +756,49 @@ export class GameEngine {
     // ── Aftermath effects ───────────────────────
     const afterStart = result.bloodEvents.length;
     this.applyAftermath(loc.id, active, result);
+
+    // TO06: Submission — 精確快照比較，恢復所有被扣除的血液
+    Object.entries(to06Snapshots).forEach(([pid, snapBlood]) => {
+      const p = s.players[pid];
+      if (!p) return;
+      const lost = (snapBlood as number) - p.blood;
+      if (lost > 0) {
+        p.blood += lost;
+        result.bloodEvents.push(`${p.name} 服從免疫：+${lost}💧`);
+        this.log(`${p.name} 的服從免疫：恢復 ${lost}💧`);
+      }
+    });
+
+    // TR06: Retaliation — 精確快照比較，對手承受等量損失
+    Object.entries(tr06Snapshots).forEach(([pid, snapBlood]) => {
+      const p = s.players[pid];
+      if (!p) return;
+      const lost = (snapBlood as number) - p.blood;
+      if (lost > 0) {
+        const rivals = Object.values(s.players).filter(x => x.id !== pid);
+        rivals.forEach(r => { r.blood = Math.max(0, r.blood - lost); });
+        result.bloodEvents.push(`${p.name} 報復：對手各 -${lost}💧`);
+        this.log(`${p.name} 的報復生效：每個對手失去 ${lost}💧`);
+      }
+    });
+
+    // TR04: Dark Pact — 精確快照比較，將效果造成的失血重導向至 TR04 所在地點
+    Object.entries(tr04Snapshots).forEach(([pid, snapBlood]) => {
+      const p = s.players[pid];
+      if (!p) return;
+      const lost = (snapBlood as number) - p.blood;
+      if (lost > 0) {
+        // 恢復血液，改放到 TR04 slot 作為血液代幣
+        p.blood += lost;
+        const tr04Slot = active.find(sl => sl.playerId === pid && sl.cardId === 'TR04');
+        if (tr04Slot) {
+          tr04Slot.bloodTokens += lost;
+          result.bloodEvents.push(`${p.name} 黑暗契約：${lost}💧 重導向至此地點`);
+          this.log(`${p.name} 的黑暗契約：${lost}💧 重導向`);
+        }
+      }
+    });
+
     result.stepEvents.aftermath = result.bloodEvents.slice(afterStart);
 
     return result;
@@ -660,8 +810,6 @@ export class GameEngine {
 
     let power = card.power;
     const mySlots = allActive.filter(sl => sl.playerId === slot.playerId);
-    const allPlayers = Object.values(this.state.players);
-    const rivals = allPlayers.filter(p => p.id !== slot.playerId);
 
     // Passive cards only work face-up
     if (card.type === 'passive' && slot.faceDown) return slot.bloodTokens;
@@ -834,10 +982,9 @@ export class GameEngine {
           }
           break;
         }
-        case 'VE06': { // Tyrant's Gaze: rivals lose 1 influence (simplified)
-          rivals.forEach(r => { r.influence = Math.max(0, r.influence - 1); });
-          result.bloodEvents.push(`${p.name} 暴君凝視：對手-1影響力`);
-          this.log(`${p.name} 的暴君凝視使每個對手失去 1 影響力`);
+        case 'VE06': {
+          // Tyrant's Gaze: 效果已在 setupPendingChoices 建立選擇，此處不重複套用
+          result.bloodEvents.push(`${p.name} 暴君凝視：已要求對手選擇`);
           break;
         }
         case 'MA01': { // Mesmerize: 選擇一名對手，將其手牌打至此地點
@@ -896,29 +1043,38 @@ export class GameEngine {
           }
           break;
         }
-        case 'MA05': { // Chaos: take back cards, steal 1 per card
-          // simplified: steal 1 per own deployed card
-          const count = active.filter(sl => sl.playerId === p.id).length;
-          let stolen = 0;
-          rivals.forEach(r => {
-            const take = Math.min(r.blood, count);
-            r.blood -= take; stolen += take;
+        case 'MA05': { // Chaos: take back own deployed cards, steal 1 per card taken
+          const mySlots = active.filter(sl => sl.playerId === p.id);
+          const taken = mySlots.length;
+          // 收回所有自己的牌（含 MA05）到手牌
+          mySlots.forEach(sl => {
+            sl.withdrawn = true; // 標記撤退，不參與後續戰鬥
+            const c = getCardById(sl.cardId);
+            if (c) p.hand.push(c);
           });
+          p.handCount = p.hand.length;
+          // 每收回一張，從每個對手偷 1 血
+          let stolen = 0;
+          for (let i = 0; i < taken; i++) {
+            rivals.forEach(r => { if (r.blood > 0) { r.blood--; stolen++; } });
+          }
           p.blood += stolen;
-          if (stolen > 0) result.bloodEvents.push(`${p.name} 混沌：+${stolen}💧`);
+          if (taken > 0) {
+            result.bloodEvents.push(`${p.name} 混沌：收回 ${taken} 張牌，偷取 ${stolen}💧`);
+            this.log(`${p.name} 的混沌：收回 ${taken} 張，偷 ${stolen} 血`);
+          }
           break;
         }
       }
     });
   }
 
-  private applyConflict(locationId: string, active: SlotFull[], result: ConflictResult): void {
+  private applyConflict(_locationId: string, active: SlotFull[], result: ConflictResult): void {
     const s = this.state;
     active.forEach(slot => {
       const card = getCardById(slot.cardId);
       if (!card || card.type !== 'conflict') return;
       const p = s.players[slot.playerId]!;
-      const rivals = Object.values(s.players).filter(x => x.id !== slot.playerId);
 
       switch (card.id) {
         case 'VE02': { // Diplomacy: highest printed power (not mine) → 0
@@ -942,14 +1098,8 @@ export class GameEngine {
           result.bloodEvents.push(`${p.name} 大規模操控：已要求對手選擇`);
           break;
         }
-        case 'TR06': { // Retaliation: 你在此地點損失/消耗血液時，對手同等失血
-          // 以己方部署血液代幣作為「已消耗血液」的近似值
-          const spent = slot.bloodTokens;
-          if (spent > 0) {
-            rivals.forEach(r => { r.blood = Math.max(0, r.blood - spent); });
-            result.bloodEvents.push(`${p.name} 報復：對手各-${spent}💧`);
-            this.log(`${p.name} 的報復：對手各失去 ${spent} 血液`);
-          }
+        case 'TR06': {
+          // Retaliation: 效果由 resolveLocation 在 aftermath 後以快照比較觸發
           break;
         }
         case 'TR08': { // Ready: 若進入狂暴，可翻面朝下代替消耗同盟牌 → 此處給 +1 血液並標記
@@ -1162,17 +1312,8 @@ export class GameEngine {
           }
           break;
         }
-        case 'TR04': { // Dark Pact: 失血/消耗血液重定向至此地點
-          // 簡化：後果階段，將對手在此地點的部署血液代幣各奪取一半至此牌
-          let gained = 0;
-          active.filter(sl => sl.playerId !== p.id).forEach(sl => {
-            const take = Math.ceil(sl.bloodTokens / 2);
-            sl.bloodTokens -= take;
-            gained += take;
-          });
-          slot.bloodTokens += gained;
-          if (gained > 0) result.bloodEvents.push(`${p.name} 黑暗契約：+${gained}💧`);
-          this.log(`${p.name} 的黑暗契約：吸收 ${gained} 部署血液`);
+        case 'TR04': {
+          // Dark Pact: 效果由 resolveLocation 在 aftermath 後以快照比較重導向
           break;
         }
         case 'TR05': { // Cauldron of Blood: 玩家選擇是否啟動
@@ -1193,23 +1334,6 @@ export class GameEngine {
       }
     });
 
-    // TO06: Submission — 此地點擁有者免疫所有失血/被偷血效果
-    // 在所有 aftermath 效果結算後，以快照比較恢復被扣除的血液
-    active.forEach(slot => {
-      if (slot.cardId !== 'TO06' || slot.faceDown || slot.withdrawn) return;
-      const p = s.players[slot.playerId];
-      if (!p) return;
-      // 記錄血液快照已在 applyPreparation 前，此處採保守補償：
-      // TO06 擁有者在此地點不應受任何 Lose/Steal blood 影響 —
-      // 簡化：確保其血液不低於本回合開始前（result.bloodEvents 中有針對他的事件則補回）
-      const targetEvents = result.bloodEvents.filter(e => e.includes(p.name) && (e.includes('💧') || e.includes('失去')));
-      if (targetEvents.length > 0) {
-        // 估算失去的血液：以事件計數補回 1 血液（保守補償）
-        p.blood += targetEvents.length;
-        result.bloodEvents.push(`${p.name} 服從免疫：+${targetEvents.length}💧`);
-        this.log(`${p.name} 的服從免疫生效`);
-      }
-    });
   }
 
   private awardPrize(locationId: string, winnerId: string, secondId: string | null): void {
@@ -1266,15 +1390,17 @@ export class GameEngine {
         player.diablerie++;
         this.log(`${player.name} 強制汲取了 ${forceDrained.name}（弒親！弒親代幣: ${player.diablerie}）`);
         if (player.diablerie >= 3) {
-          this.log(`${player.name} 弒親代幣達 3！被淘汰出局！`);
-          delete this.state.players[player.id];
+          this.eliminatePlayer(player.id);
           return;
         }
       } else {
         this.log(`${player.name} 強制汲取了 ${forceDrained.name}（+${forceDrained.drainBlood}💧）`);
       }
     } else {
-      player.blood = 1; // 無同盟牌，從銀行取 1 血
+      // 無同盟牌：從銀行取 1 血，但失去 1 影響力
+      player.blood = 1;
+      player.influence = Math.max(0, player.influence - 1);
+      this.log(`${player.name} 進入狂暴（無同盟）！獲得 1💧，失去 1 影響力`);
     }
   }
 
@@ -1285,6 +1411,12 @@ export class GameEngine {
     s.phase = 'ROUND_END';
 
     Object.values(s.players).forEach(p => {
+      // MA06: 揭牌後從氏族牌堆抽牌部署（已在 applyAftermath 做）；
+      // 回合結束時：若有 MA06 面朝上，從手牌中洗一張牌回牌堆
+      const hadMA06 = LOCATIONS.some(loc =>
+        s.deployments[loc.id].some(sl => sl.playerId === p.id && sl.cardId === 'MA06' && !sl.faceDown && !sl.withdrawn)
+      );
+
       // Return deployed cards to hand
       LOCATIONS.forEach(loc => {
         s.deployments[loc.id]
@@ -1294,6 +1426,18 @@ export class GameEngine {
             if (card) p.hand.push(card);
           });
       });
+
+      // MA06: 洗回一張非 MA06 的牌至牌堆
+      if (hadMA06) {
+        const idx = p.hand.findIndex(c => c.id !== 'MA06');
+        if (idx !== -1) {
+          const [shuffled] = p.hand.splice(idx, 1);
+          p.deck.push(shuffled);
+          p.deck = shuffle(p.deck);
+          this.log(`${p.name} 的馬爾卡夫之禍：${shuffled.name_zh} 洗回牌堆`);
+        }
+      }
+
       p.handCount = p.hand.length;
       p.isReady = false;
     });
@@ -1312,7 +1456,7 @@ export class GameEngine {
     // Final score: influence tokens + alliance influence (use drainInfluence for drained allies) - diablerie
     Object.values(s.players).forEach(p => {
       const allianceInf = p.alliance.reduce((sum, a) => sum + (a.drained ? a.drainInfluence : a.influence), 0);
-      p.influence += allianceInf - p.diablerie;
+      p.influence = Math.max(0, p.influence + allianceInf - p.diablerie);
     });
 
     const sorted = Object.values(s.players).sort((a, b) => {
@@ -1345,9 +1489,15 @@ export class GameEngine {
     s.resolvedChoices = {};
     let n = 0;
 
-    for (const [locId, slots] of Object.entries(s.deployments)) {
+    // 只掃描當前結算地點
+    const currentLoc = s.locations[s.currentLocIndex];
+    const deployEntries = currentLoc
+      ? [[currentLoc.id, s.deployments[currentLoc.id]] as [string, typeof s.deployments[string]]]
+      : [];
+
+    for (const [locId, slots] of deployEntries) {
       const active = slots.filter(sl => !sl.withdrawn && !sl.faceDown);
-      const allAtLoc = slots.filter(sl => !sl.withdrawn); // include facedown
+      const allAtLoc = slots.filter(sl => !sl.withdrawn);
 
       for (const slot of active) {
         const card = getCardById(slot.cardId);
@@ -1443,6 +1593,16 @@ export class GameEngine {
                 `【奧術汲取】消耗 ${cost}💧 奪取對手在此地點一半的部署血液？`,
                 [{ key:'pay',    label_zh:`消耗 ${cost}💧 啟動` },
                  { key:'no_pay', label_zh:'不啟動' }],
+                card.id, locId, slot.playerId, owner.name));
+            }
+            break;
+
+          case 'NO05': // 背刺：可選擇將此牌移至王子避難所
+            if (locId !== 'haven') {
+              s.pendingChoices.push(this.makeChoice(n++, slot.playerId,
+                `【背刺】將此牌移至王子的避難所？`,
+                [{ key:'move_haven', label_zh:'移至王子避難所' },
+                 { key:'stay',       label_zh:'留在此地點' }],
                 card.id, locId, slot.playerId, owner.name));
             }
             break;
@@ -1553,6 +1713,38 @@ export class GameEngine {
         }
         break;
 
+      case 'NO05': { // 背刺：移至王子避難所
+        if (option === 'move_haven') {
+          const fromSlots = s.deployments[locId];
+          const slotIdx = fromSlots?.findIndex(sl => sl.playerId === choice.playerId && sl.cardId === 'NO05');
+          if (slotIdx !== undefined && slotIdx !== -1 && fromSlots) {
+            const [movedSlot] = fromSlots.splice(slotIdx, 1);
+            movedSlot.withdrawn = false;
+            s.deployments['haven'].push(movedSlot);
+            this.log(`${player.name} 的背刺：移至王子避難所`);
+          }
+        } else {
+          this.log(`${player.name} 選擇留在原地（背刺）`);
+        }
+        break;
+      }
+
+      case 'NO09': { // Hunt Nosferatu：移至王子避難所
+        if (option === 'move_haven') {
+          const fromSlots = s.deployments[locId];
+          const slotIdx = fromSlots?.findIndex(sl => sl.playerId === choice.playerId && sl.cardId === 'NO09');
+          if (slotIdx !== undefined && slotIdx !== -1 && fromSlots) {
+            const [movedSlot] = fromSlots.splice(slotIdx, 1);
+            movedSlot.withdrawn = false;
+            s.deployments['haven'].push(movedSlot);
+            this.log(`${player.name} 的諾斯費拉圖狩獵：移至王子避難所`);
+          }
+        } else {
+          this.log(`${player.name} 選擇留在原地（諾斯費拉圖狩獵）`);
+        }
+        break;
+      }
+
       default:
         // GA05, GA07, TR05, TR07, NO07, MA01, VE07 — 在 resolution 時由 applyPreparation/applyAftermath 讀取
         this.log(`${player.name} 選擇：${option}（${choice.context.cardId}）`);
@@ -1576,11 +1768,21 @@ export class GameEngine {
     });
 
     const isRevealed = ['REVELATION', 'CONFLICT', 'ROUND_END', 'GAME_OVER'].includes(s.phase);
+
+    // NO03: 暗中之眼 — 擁有者可看到其所在地點所有面朝下的牌
+    const no03VisibleLocs = new Set<string>();
+    for (const [locId, slots] of Object.entries(s.deployments)) {
+      if (slots.some(sl => sl.playerId === forPlayerId && sl.cardId === 'NO03' && !sl.faceDown && !sl.withdrawn)) {
+        no03VisibleLocs.add(locId);
+      }
+    }
+
     const filteredDeploy: Record<string, SlotVisible[]> = {};
     for (const [locId, slots] of Object.entries(s.deployments)) {
+      const no03Visible = no03VisibleLocs.has(locId);
       filteredDeploy[locId] = slots.map(slot => {
         const isMine = slot.playerId === forPlayerId;
-        const revealed = !slot.faceDown || isRevealed;
+        const revealed = !slot.faceDown || isRevealed || no03Visible;
         return {
           playerId: slot.playerId,
           cardId: (isMine || revealed) ? slot.cardId : null,
@@ -1600,6 +1802,7 @@ export class GameEngine {
       ambitionHolder: s.ambitionHolder,
       playerOrder: s.playerOrder,
       currentTurnPlayerId: s.currentTurnPlayerId,
+      currentLocIndex: s.currentLocIndex,
       locations: s.locations,
       players: publicPlayers,
       myHand: me?.hand ?? [],
@@ -1612,8 +1815,61 @@ export class GameEngine {
       waitingFor: Object.values(s.players).filter(p => !p.isReady).map(p => p.id),
       lastConflictResults: s.lastConflictResults,
       winner: s.winner,
-      log: s.log.slice(-40),
+      log: s.log.slice(-80),
       myPendingChoice: s.pendingChoices.find(c => c.playerId === forPlayerId) ?? null,
+    };
+  }
+
+  /** 觀戰者狀態：所有部署牌面公開，無私人手牌資訊 */
+  getSpectatorState(): GameStateClient {
+    const s = this.state;
+
+    const publicPlayers: Record<string, any> = {};
+    Object.values(s.players).forEach(p => {
+      publicPlayers[p.id] = {
+        id: p.id, name: p.name, clan: p.clan,
+        blood: p.blood, influence: p.influence,
+        handCount: p.hand.length, allianceCount: p.alliance.length,
+        diablerie: p.diablerie, deploymentsLeft: p.deploymentsLeft,
+        isReady: p.isReady,
+      };
+    });
+
+    const filteredDeploy: Record<string, SlotVisible[]> = {};
+    for (const [locId, slots] of Object.entries(s.deployments)) {
+      filteredDeploy[locId] = slots.map(slot => ({
+        playerId: slot.playerId,
+        cardId: slot.cardId,
+        faceDown: slot.faceDown,
+        bloodTokensHidden: false,
+        bloodTokens: slot.bloodTokens,
+        withdrawn: slot.withdrawn,
+        effectivePower: slot.effectivePower,
+      }));
+    }
+
+    return {
+      roomCode: s.roomCode,
+      phase: s.phase,
+      round: s.round,
+      ambitionHolder: s.ambitionHolder,
+      playerOrder: s.playerOrder,
+      currentTurnPlayerId: s.currentTurnPlayerId,
+      currentLocIndex: s.currentLocIndex,
+      locations: s.locations,
+      players: publicPlayers,
+      myHand: [],
+      myHandBuildDraft: [],
+      myBlood: 0,
+      myAlliance: [],
+      myDiablerieTokens: 0,
+      deployments: filteredDeploy,
+      locationAllies: s.locationAllies,
+      waitingFor: Object.values(s.players).filter(p => !p.isReady).map(p => p.id),
+      lastConflictResults: s.lastConflictResults,
+      winner: s.winner,
+      log: s.log.slice(-80),
+      myPendingChoice: null,
     };
   }
 
