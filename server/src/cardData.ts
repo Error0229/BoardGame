@@ -20,13 +20,13 @@ export const LOCATIONS: LocationDef[] = [
   {
     id: 'club_zombie',
     name: 'Club Zombie',
-    influence: [[1, 0], [2, 1], [2, 1]],
+    influence: [[1, 0], [1, 1], [2, 1]],
     isPrinces: false,
   },
   {
     id: 'haven',
     name: "Prince's Haven",
-    influence: [[3, 0], [3, 1], [4, 1]],
+    influence: [[2, 0], [2, 1], [3, 1]],
     isPrinces: true,
   },
 ];
