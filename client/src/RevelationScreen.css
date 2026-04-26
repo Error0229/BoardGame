@@ -161,6 +161,30 @@
   animation: step-progress 3s linear forwards;
 }
 
+/* ── Location badge in header ── */
+
+.revelation__loc-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  background: rgba(139,0,0,0.15);
+  border: 1px solid rgba(139,0,0,0.35);
+  border-radius: 20px;
+  padding: 3px 12px 3px 10px;
+}
+
+.revelation__loc-badge-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.revelation__loc-badge-prog {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
 /* ── Body layout ── */
 
 .revelation__body {
@@ -170,11 +194,53 @@
   align-items: start;
 }
 
+.revelation__main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* ── Location history chips ── */
+
+.revelation__loc-history {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.revelation__loc-history-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+.loc-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+.loc-chip__name   { font-weight: 600; color: var(--text-h); }
+.loc-chip__sep    { color: var(--text-dim); }
+.loc-chip__tie    { color: var(--text-dim); font-style: italic; }
+.loc-chip__no-winner { color: var(--text-dim); }
+.loc-chip__winner { color: var(--text-dim); }
+.loc-chip__winner--me { color: #4caf50; font-weight: 700; }
+.loc-chip__inf    { color: var(--gold); }
+
 /* ── Results grid ── */
 
 .revelation__results {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 12px;
 }
 
@@ -338,16 +404,17 @@
   opacity: 0.4;
 }
 
-/* 本步驟活躍卡牌：高亮邊框 + 輕微發光 */
+/* 本步驟活躍卡牌：高亮邊框 + 輕微發光，展開效果文字 */
 .result-slot--active {
   border-color: var(--gold) !important;
-  box-shadow: 0 0 6px rgba(201,162,39,0.3);
-  background: rgba(201,162,39,0.06) !important;
+  box-shadow: 0 0 8px rgba(201,162,39,0.35);
+  background: rgba(201,162,39,0.07) !important;
+  align-items: flex-start;
 }
 
 /* 本步驟非活躍卡牌：淡出 */
 .result-slot--dim {
-  opacity: 0.45;
+  opacity: 0.4;
 }
 
 .result-slot__img {
@@ -409,10 +476,31 @@
 .result-slot__tokens  { color: var(--blood-bright); font-size: 11px; }
 .result-slot__wd      { color: var(--gold-dim); font-size: 10px; font-style: italic; }
 
+/* 效果文字（active 步驟時展開） */
+.result-slot__effect-inline {
+  font-size: 11px;
+  color: var(--gold);
+  line-height: 1.5;
+  background: rgba(201,162,39,0.08);
+  border-left: 2px solid var(--gold-dim);
+  padding: 3px 6px;
+  border-radius: 0 3px 3px 0;
+  margin: 2px 0;
+  white-space: pre-wrap;
+}
+
+/* 戰力欄：垂直排列（數值 + 公式） */
+.result-slot__power-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
 .result-slot__power {
   color: var(--gold);
   font-weight: 700;
   font-size: 13px;
+  line-height: 1;
 }
 
 /* 戰力被效果改變：紅色警示 */
@@ -420,11 +508,10 @@
   color: #e06060;
 }
 
-.result-slot__power-note {
+.result-slot__power-formula {
   font-size: 10px;
-  font-weight: 400;
   color: var(--text-dim);
-  margin-left: 2px;
+  line-height: 1;
 }
 
 /* ── Step events ── */

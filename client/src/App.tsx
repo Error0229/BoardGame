@@ -10,6 +10,7 @@ import RevelationScreen from './RevelationScreen'
 import GameOverScreen from './GameOverScreen'
 import CardLibrary from './CardLibrary'
 import RulesModal from './RulesModal'
+import PlayerHUD from './PlayerHUD'
 import './App.css'
 
 export default function App() {
@@ -95,6 +96,10 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {gameState && !['LOBBY', 'GAME_OVER'].includes(phase ?? '') && (
+        <PlayerHUD myId={myId} gameState={gameState} />
+      )}
 
       <main className="app-main">
         {!connected ? (

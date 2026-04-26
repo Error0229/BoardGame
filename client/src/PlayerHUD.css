@@ -1,0 +1,65 @@
+.player-hud {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 32px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.player-hud__name {
+  font-weight: 700;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+.player-hud__divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.player-hud__stats {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.player-hud__stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.player-hud__label {
+  color: var(--text-dim);
+}
+
+.player-hud__val {
+  font-weight: 700;
+  color: var(--text-h);
+  min-width: 16px;
+}
+
+.player-hud__stat--blood .player-hud__val {
+  color: #e05050;
+}
+
+.player-hud__stat--influence .player-hud__val {
+  color: var(--gold);
+}
+
+.player-hud__stat--alliance .player-hud__val {
+  color: #7cb8ff;
+}
+
+.player-hud__stat--diablerie .player-hud__val {
+  color: #c07aff;
+}
+
+.player-hud__stat--deploys .player-hud__val {
+  color: #6dbf6d;
+}

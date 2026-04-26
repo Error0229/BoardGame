@@ -23,21 +23,19 @@ const STEP_LABELS: Record<ResolutionStep, string> = {
   complete: '完成',
 }
 
-// 每個步驟對應要高亮的卡牌類型
 const STEP_ACTIVE_TYPE: Partial<Record<ResolutionStep, string>> = {
   prepare:  'preparation',
   conflict: 'conflict',
   aftermath:'aftermath',
 }
 
-// 每個步驟的說明字幕
 const STEP_DESCRIPTIONS: Record<ResolutionStep, string> = {
-  withdraw: '玩家選擇是否在最後關頭撤退',
+  withdraw: '玩家選擇是否撤退',
   reveal:   '所有面朝下的牌同時翻開',
-  prepare:  '觸發準備型卡牌效果',
+  prepare:  '準備型卡牌依序觸發效果',
   conflict: '計算各地點戰力，決定勝負',
-  aftermath:'觸發後果型卡牌效果',
-  complete: '分配影響力，結算本回合',
+  aftermath:'後果型卡牌依序觸發效果',
+  complete: '分配影響力，結算本地點',
 }
 
 const CLAN_LABEL: Record<string, { zh: string; color: string }> = {
@@ -50,7 +48,6 @@ const CLAN_LABEL: Record<string, { zh: string; color: string }> = {
   ventrue:  { zh: '凡崔',      color: '#4060c0' },
 }
 
-// 根據事件文字內容決定顏色 class
 function eventClass(text: string): string {
   if (/血液|💧|失去.*血|血.*失去|吸取|流失/.test(text)) return 'event--blood'
   if (/影響力|獲得.*影|影\b/.test(text))               return 'event--influence'
@@ -61,6 +58,34 @@ function eventClass(text: string): string {
 
 type SlotPopup = { cardId: string; ownerName: string }
 
+// ── 已完成地點摘要 chip ────────────────────────────────────────────
+function LocHistoryChip({ result, gameState, myId }: {
+  result: ConflictResult
+  gameState: GameStateClient
+  myId: string
+}) {
+  const loc    = gameState.locations.find(l => l.id === result.locationId)
+  const winner = result.winner ? gameState.players[result.winner] : null
+  const infGain = result.winner ? (result.influenceGained[result.winner] ?? 0) : 0
+  return (
+    <div className="loc-chip">
+      <span className="loc-chip__name">{loc?.name ?? result.locationId}</span>
+      <span className="loc-chip__sep">→</span>
+      {result.tie ? (
+        <span className="loc-chip__tie">平局</span>
+      ) : winner ? (
+        <span className={`loc-chip__winner ${result.winner === myId ? 'loc-chip__winner--me' : ''}`}>
+          {result.winner === myId ? '✓ 你勝' : `${winner.name} 勝`}
+          {infGain > 0 && <span className="loc-chip__inf"> +{infGain}影</span>}
+        </span>
+      ) : (
+        <span className="loc-chip__no-winner">—</span>
+      )}
+    </div>
+  )
+}
+
+// ── Result Card ───────────────────────────────────────────────────
 function ResultCard({ result, gameState, myId, showStep, onSlotClick }: {
   result: ConflictResult
   gameState: GameStateClient
@@ -71,34 +96,31 @@ function ResultCard({ result, gameState, myId, showStep, onSlotClick }: {
   const loc = gameState.locations.find(l => l.id === result.locationId)
   const slots = gameState.deployments[result.locationId] ?? []
   const sortedPlayers = Object.entries(result.scores).sort((a, b) => b[1] - a[1])
-
   const activeType = STEP_ACTIVE_TYPE[showStep] ?? null
 
-  // 取出本步驟的效果事件
   const stepEvents: string[] =
     showStep === 'prepare'   ? (result.stepEvents?.prepare   ?? []) :
     showStep === 'conflict'  ? (result.stepEvents?.conflict  ?? []) :
-    showStep === 'aftermath' ? (result.stepEvents?.aftermath ?? []) :
-    []
+    showStep === 'aftermath' ? (result.stepEvents?.aftermath ?? []) : []
 
-  // conflict 步驟起才顯示戰力
-  const showPower = showStep !== 'withdraw' && showStep !== 'reveal' && showStep !== 'prepare'
-  // conflict 步驟起才顯示比分列表
+  const showPower  = showStep !== 'withdraw' && showStep !== 'reveal' && showStep !== 'prepare'
   const showScores = showStep === 'conflict' || showStep === 'aftermath' || showStep === 'complete'
 
   return (
-    <div className={`result-card ${result.winner === myId ? 'result-card--winner' : ''} ${showStep === 'complete' ? 'result-card--complete' : ''}`}>
+    <div className={[
+      'result-card',
+      result.winner === myId ? 'result-card--winner' : '',
+      showStep === 'complete' ? 'result-card--complete' : '',
+    ].filter(Boolean).join(' ')}>
 
       {/* 地點標題 */}
       <div className="result-card__loc">
         {loc?.name ?? result.locationId}
         {loc?.isPrinces && <span className="result-card__princes">王子之地</span>}
-        <span className={`result-card__step result-card__step--${showStep}`}>
-          {STEP_LABELS[showStep]}
-        </span>
+        <span className={`result-card__step result-card__step--${showStep}`}>{STEP_LABELS[showStep]}</span>
       </div>
 
-      {/* Complete 步驟：勝負 Banner */}
+      {/* Complete 勝負 banner */}
       {showStep === 'complete' && (
         result.tie
           ? <div className="result-card__outcome result-card__outcome--tie">平局 — 無人得分</div>
@@ -108,9 +130,7 @@ function ResultCard({ result, gameState, myId, showStep, onSlotClick }: {
                 {result.winner === myId ? '🏆 你勝出！' : `${gameState.players[result.winner]?.name ?? '?'} 勝出`}
               </span>
               {(result.influenceGained[result.winner] ?? 0) > 0 && (
-                <span className="result-card__outcome-inf">
-                  +{result.influenceGained[result.winner]} 影響力
-                </span>
+                <span className="result-card__outcome-inf">+{result.influenceGained[result.winner]} 影響力</span>
               )}
             </div>
           )
@@ -119,42 +139,32 @@ function ResultCard({ result, gameState, myId, showStep, onSlotClick }: {
       {/* 部署牌列表 */}
       <div className="result-card__slots">
         {slots.map((sl, i) => {
-          const owner = gameState.players[sl.playerId]
-          const clan = owner?.clan as ClanId | null
+          const owner    = gameState.players[sl.playerId]
+          const clan     = owner?.clan as ClanId | null
           const isFaceDown = sl.faceDown && showStep === 'withdraw'
-
-          const cardType = sl.cardId ? CARD_DEFS[sl.cardId]?.type : null
-          // 只在有 activeType 的步驟才高亮
-          const isActive = !sl.withdrawn && !isFaceDown && activeType && cardType === activeType
-          const isDim    = !sl.withdrawn && !isFaceDown && activeType && cardType !== activeType
-
-          const basePow = (sl.cardId ? CARD_DEFS[sl.cardId]?.power : 0) ?? 0
-          const eff = sl.effectivePower ?? 0
-          // 若有效戰力與 基礎+血液 不符，代表效果改變了戰力
+          const cardDef  = sl.cardId ? CARD_DEFS[sl.cardId] : null
+          const cardType = cardDef?.type ?? null
+          const isActive = !sl.withdrawn && !isFaceDown && !!activeType && cardType === activeType
+          const isDim    = !sl.withdrawn && !isFaceDown && !!activeType && cardType !== activeType
+          const basePow  = cardDef?.power ?? 0
+          const eff      = sl.effectivePower ?? 0
           const isModified = showPower && sl.effectivePower !== null && eff !== basePow + sl.bloodTokens
-
-          const effectText = !isFaceDown && sl.cardId ? (CARD_DEFS[sl.cardId]?.effect_zh ?? '') : ''
+          const effectText = !isFaceDown && sl.cardId ? (cardDef?.effect_zh ?? '') : ''
           const clickable  = !isFaceDown && !!sl.cardId
+
           return (
             <div key={i}
               className={[
                 'result-slot',
-                sl.playerId === myId   ? 'result-slot--mine'      : '',
-                sl.withdrawn           ? 'result-slot--withdrawn'  : '',
-                isActive               ? 'result-slot--active'     : '',
-                isDim                  ? 'result-slot--dim'        : '',
-                clickable              ? 'result-slot--clickable'  : '',
+                sl.playerId === myId ? 'result-slot--mine'     : '',
+                sl.withdrawn         ? 'result-slot--withdrawn' : '',
+                isActive             ? 'result-slot--active'    : '',
+                isDim                ? 'result-slot--dim'       : '',
+                clickable            ? 'result-slot--clickable' : '',
               ].filter(Boolean).join(' ')}
-              data-effect={effectText || undefined}
-              onClick={clickable ? () => onSlotClick({ cardId: sl.cardId!, ownerName: gameState.players[sl.playerId]?.name ?? '?' }) : undefined}
+              onClick={clickable ? () => onSlotClick({ cardId: sl.cardId!, ownerName: owner?.name ?? '?' }) : undefined}
             >
-
-              <CardImage
-                cardId={sl.cardId}
-                clan={clan}
-                faceDown={isFaceDown}
-                className="result-slot__img"
-              />
+              <CardImage cardId={sl.cardId} clan={clan} faceDown={isFaceDown} className="result-slot__img" />
 
               <div className="result-slot__info">
                 <span className="result-slot__owner">{owner?.name ?? '?'}</span>
@@ -172,20 +182,26 @@ function ResultCard({ result, gameState, myId, showStep, onSlotClick }: {
                   )}
                 </div>
 
+                {/* 效果文字：在此牌對應的步驟時展開顯示 */}
+                {isActive && effectText && (
+                  <div className="result-slot__effect-inline">{effectText}</div>
+                )}
+
                 <div className="result-slot__badges">
-                  {sl.bloodTokens > 0 && (
-                    <span className="result-slot__tokens">💧{sl.bloodTokens}</span>
-                  )}
-                  {sl.withdrawn && (
-                    <span className="result-slot__wd">撤退</span>
-                  )}
+                  {sl.bloodTokens > 0 && <span className="result-slot__tokens">💧{sl.bloodTokens}</span>}
+                  {sl.withdrawn && <span className="result-slot__wd">撤退</span>}
+
+                  {/* 戰力：顯示公式 */}
                   {showPower && !sl.withdrawn && sl.effectivePower !== null && (
-                    <span className={`result-slot__power ${isModified ? 'result-slot__power--modified' : ''}`}>
-                      ⚔ {eff}
-                      {isModified && (
-                        <span className="result-slot__power-note">（基{basePow}+💧{sl.bloodTokens}）</span>
-                      )}
-                    </span>
+                    <div className="result-slot__power-wrap">
+                      <span className={`result-slot__power ${isModified ? 'result-slot__power--modified' : ''}`}>
+                        ⚔ {eff}
+                      </span>
+                      <span className="result-slot__power-formula">
+                        {basePow}基礎 + {sl.bloodTokens}💧
+                        {isModified && ` + 效果${eff - basePow - sl.bloodTokens >= 0 ? '+' : ''}${eff - basePow - sl.bloodTokens}`}
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>
@@ -197,26 +213,26 @@ function ResultCard({ result, gameState, myId, showStep, onSlotClick }: {
       {/* 本步驟效果事件 */}
       {stepEvents.length > 0 && (
         <div className="result-card__events">
-          <div className="result-card__events-title">本階段效果</div>
+          <div className="result-card__events-title">效果觸發</div>
           {stepEvents.map((ev, i) => (
             <div key={i} className={`result-card__event-line ${eventClass(ev)}`}>▸ {ev}</div>
           ))}
         </div>
       )}
 
-      {/* 戰力比分（conflict 步驟起顯示） */}
+      {/* 戰力排行 */}
       {showScores && sortedPlayers.length > 0 && (
         <div className="result-card__scores">
           {sortedPlayers.map(([pid, score], idx) => {
-            const player = gameState.players[pid]
+            const player  = gameState.players[pid]
             const isWinner = pid === result.winner
             const isSecond = pid === result.second
             const infGain  = result.influenceGained[pid] ?? 0
             return (
               <div key={pid} className={[
                 'result-card__row',
-                idx === 0        ? 'result-card__row--first' : '',
-                pid === myId     ? 'result-card__row--me'    : '',
+                idx === 0    ? 'result-card__row--first' : '',
+                pid === myId ? 'result-card__row--me'    : '',
               ].filter(Boolean).join(' ')}>
                 <span className="result-card__rank">#{idx + 1}</span>
                 <span className="result-card__pname">{player?.name ?? '?'}</span>
@@ -225,9 +241,7 @@ function ResultCard({ result, gameState, myId, showStep, onSlotClick }: {
                   <span className="result-card__inf">+{infGain}影</span>
                 )}
                 {showStep === 'complete' && isWinner && <span className="result-card__medal">🏆</span>}
-                {showStep === 'complete' && isSecond && !isWinner && (
-                  <span className="result-card__medal">🥈</span>
-                )}
+                {showStep === 'complete' && isSecond && !isWinner && <span className="result-card__medal">🥈</span>}
               </div>
             )
           })}
@@ -237,8 +251,7 @@ function ResultCard({ result, gameState, myId, showStep, onSlotClick }: {
   )
 }
 
-// ── 全戰場部署總覽（pendingChoice 時顯示） ─────────────────────
-
+// ── 全戰場部署總覽（pendingChoice 時顯示） ─────────────────────────
 function BattlefieldOverview({ gameState, myId, highlightLocId, onSlotClick }: {
   gameState: GameStateClient
   myId: string
@@ -273,12 +286,7 @@ function BattlefieldOverview({ gameState, myId, highlightLocId, onSlotClick }: {
                     className={`bf-slot ${isMe ? 'bf-slot--mine' : ''} ${bfClickable ? 'bf-slot--clickable' : ''}`}
                     onClick={bfClickable ? () => onSlotClick({ cardId: sl.cardId!, ownerName: owner?.name ?? '?' }) : undefined}
                   >
-                    <CardImage
-                      cardId={sl.cardId}
-                      clan={clan}
-                      faceDown={hidden}
-                      className="bf-slot__img"
-                    />
+                    <CardImage cardId={sl.cardId} clan={clan} faceDown={hidden} className="bf-slot__img" />
                     <div className="bf-slot__info">
                       <span className="bf-slot__owner">{owner?.name ?? '?'}{isMe && ' (你)'}</span>
                       <span className="bf-slot__card">{hidden ? '???' : (sl.cardId ? cardName(sl.cardId) : '—')}</span>
@@ -302,67 +310,69 @@ function BattlefieldOverview({ gameState, myId, highlightLocId, onSlotClick }: {
   )
 }
 
-// ── Main Component ──────────────────────────────────────────────
-
+// ── Main Component ────────────────────────────────────────────────
 export default function RevelationScreen({ myId, gameState }: Props) {
-  const results  = gameState.lastConflictResults
-  const phase    = gameState.phase
-  const waiting  = gameState.waitingFor
+  const results       = gameState.lastConflictResults
+  const phase         = gameState.phase
+  const waiting       = gameState.waitingFor
   const iHaveConfirmed = !waiting.includes(myId)
-  const players  = Object.values(gameState.players).sort((a, b) => b.influence - a.influence)
+  const players       = Object.values(gameState.players).sort((a, b) => b.influence - a.influence)
   const pendingChoice = gameState.myPendingChoice
-  const [slotPopup, setSlotPopup] = useState<SlotPopup | null>(null)
 
+  const [slotPopup,   setSlotPopup]   = useState<SlotPopup | null>(null)
   const [currentStep, setCurrentStep] = useState<ResolutionStep>('withdraw')
-  const [autoPlay, setAutoPlay] = useState(true)
+  const [autoPlay,    setAutoPlay]    = useState(true)
 
   const stepIdx = STEPS.indexOf(currentStep)
   const canPrev = stepIdx > 0
   const canNext = stepIdx < STEPS.length - 1
 
   const nextStep = useCallback(() => {
-    setCurrentStep(s => {
-      const i = STEPS.indexOf(s)
-      return i < STEPS.length - 1 ? STEPS[i + 1] : s
-    })
+    setCurrentStep(s => { const i = STEPS.indexOf(s); return i < STEPS.length - 1 ? STEPS[i + 1] : s })
   }, [])
-
   const prevStep = useCallback(() => {
-    setCurrentStep(s => {
-      const i = STEPS.indexOf(s)
-      return i > 0 ? STEPS[i - 1] : s
-    })
+    setCurrentStep(s => { const i = STEPS.indexOf(s); return i > 0 ? STEPS[i - 1] : s })
   }, [])
 
-  // 彙整目前步驟所有地點的效果事件（需先算，autoPlay effect 依賴它）
-  const allStepEvents = useMemo(() => {
-    if (currentStep === 'prepare')   return results.flatMap(r => r.stepEvents?.prepare   ?? [])
-    if (currentStep === 'conflict')  return results.flatMap(r => r.stepEvents?.conflict  ?? [])
-    if (currentStep === 'aftermath') return results.flatMap(r => r.stepEvents?.aftermath ?? [])
-    return []
-  }, [currentStep, results])
+  // 當前地點（最新結果）vs 已完成地點
+  const currentResult = results.length > 0 ? results[results.length - 1] : null
+  const prevResults   = results.slice(0, -1)
 
-  // 進入 REVELATION 時重置步驟並開啟自動播放
+  // 地點進度
+  const totalActiveLocs = gameState.locations.filter(loc =>
+    (gameState.deployments[loc.id] ?? []).some(sl => !sl.withdrawn)
+  ).length
+  const currentLocName = currentResult
+    ? (gameState.locations.find(l => l.id === currentResult.locationId)?.name ?? '')
+    : ''
+
+  // 步驟事件：只看當前地點
+  const allStepEvents = useMemo(() => {
+    if (!currentResult) return []
+    if (currentStep === 'prepare')   return currentResult.stepEvents?.prepare   ?? []
+    if (currentStep === 'conflict')  return currentResult.stepEvents?.conflict  ?? []
+    if (currentStep === 'aftermath') return currentResult.stepEvents?.aftermath ?? []
+    return []
+  }, [currentStep, currentResult])
+
+  // 每次進入 REVELATION 或切換到新地點時重置步驟
+  const currentLocId = currentResult?.locationId ?? null
   useEffect(() => {
     if (phase === 'REVELATION') {
       setCurrentStep('withdraw')
       setAutoPlay(true)
     }
-  }, [phase])
+  }, [phase, currentLocId])
 
-  // 自動播放計時器：有事件的步驟自動暫停，讓玩家閱讀
+  // 自動播放：有事件時暫停；否則 3 秒後推進
   useEffect(() => {
     if (!autoPlay || currentStep === 'complete') return
-    if (allStepEvents.length > 0) {
-      setAutoPlay(false)
-      return
-    }
+    if (allStepEvents.length > 0) { setAutoPlay(false); return }
     const timer = setTimeout(nextStep, 3000)
     return () => clearTimeout(timer)
   }, [autoPlay, currentStep, nextStep, allStepEvents])
 
-  function confirm() { socket.emit('readyAdvance') }
-
+  function confirm()  { socket.emit('readyAdvance') }
   function respondChoice(option: string) {
     if (!pendingChoice) return
     socket.emit('respondChoice', { choiceId: pendingChoice.id, option })
@@ -374,7 +384,7 @@ export default function RevelationScreen({ myId, gameState }: Props) {
   return (
     <div className={`revelation ${pendingChoice ? 'revelation--has-choice' : ''}`}>
 
-      {/* ── 卡牌詳情 Popup ── */}
+      {/* 卡牌詳情 Popup */}
       {slotPopup && (() => {
         const def = CARD_DEFS[slotPopup.cardId]
         return (
@@ -396,7 +406,7 @@ export default function RevelationScreen({ myId, gameState }: Props) {
         )
       })()}
 
-      {/* ── 待選擇強制 Bar（底部緊湊列） ── */}
+      {/* 待選擇強制 Bar */}
       {pendingChoice && (() => {
         const loc = gameState.locations.find(l => l.id === pendingChoice.context.locationId)
         return (
@@ -405,11 +415,7 @@ export default function RevelationScreen({ myId, gameState }: Props) {
             <span className="choice-bar__prompt">{pendingChoice.prompt_zh}</span>
             <div className="choice-bar__options">
               {pendingChoice.options.map(opt => (
-                <button
-                  key={opt.key}
-                  className="btn-primary choice-bar__btn"
-                  onClick={() => respondChoice(opt.key)}
-                >
+                <button key={opt.key} className="btn-primary choice-bar__btn" onClick={() => respondChoice(opt.key)}>
                   {opt.label_zh}
                 </button>
               ))}
@@ -418,7 +424,7 @@ export default function RevelationScreen({ myId, gameState }: Props) {
         )
       })()}
 
-      {/* ── 標題列 ── */}
+      {/* 標題列 */}
       <div className="revelation__header">
         <div className="revelation__header-top">
           <div className="revelation__title">
@@ -427,30 +433,29 @@ export default function RevelationScreen({ myId, gameState }: Props) {
           <div className="revelation__subtitle">
             {isReveal
               ? `第 ${gameState.round} 回合`
-              : gameState.round < 3
-                ? `第 ${gameState.round + 1} 回合即將開始`
-                : '最終回合'}
+              : gameState.round < 3 ? `第 ${gameState.round + 1} 回合即將開始` : '最終回合'}
           </div>
+
+          {/* 當前地點標籤（多地點時顯示） */}
+          {isReveal && totalActiveLocs > 1 && currentLocName && (
+            <div className="revelation__loc-badge">
+              <span className="revelation__loc-badge-name">{currentLocName}</span>
+              <span className="revelation__loc-badge-prog">{results.length}/{totalActiveLocs}</span>
+            </div>
+          )}
         </div>
 
-        {/* 步驟進度列（僅結算階段） */}
+        {/* 步驟進度列 */}
         {isReveal && (
           <div className="revelation__step-bar">
-            <button
-              className="revelation__step-nav"
-              onClick={prevStep}
-              disabled={!canPrev}
-              title="上一步"
-            >‹</button>
-
+            <button className="revelation__step-nav" onClick={prevStep} disabled={!canPrev} title="上一步">‹</button>
             <div className="revelation__steps">
               {STEPS.map((s, i) => (
-                <button
-                  key={s}
+                <button key={s}
                   className={[
                     'revelation__step-dot',
-                    s === currentStep    ? 'revelation__step-dot--active' : '',
-                    i < stepIdx          ? 'revelation__step-dot--done'   : '',
+                    s === currentStep ? 'revelation__step-dot--active' : '',
+                    i < stepIdx       ? 'revelation__step-dot--done'   : '',
                   ].filter(Boolean).join(' ')}
                   onClick={() => { setCurrentStep(s); setAutoPlay(false) }}
                 >
@@ -458,14 +463,7 @@ export default function RevelationScreen({ myId, gameState }: Props) {
                 </button>
               ))}
             </div>
-
-            <button
-              className="revelation__step-nav"
-              onClick={() => { nextStep(); setAutoPlay(false) }}
-              disabled={!canNext}
-              title="下一步"
-            >›</button>
-
+            <button className="revelation__step-nav" onClick={() => { nextStep(); setAutoPlay(false) }} disabled={!canNext} title="下一步">›</button>
             <button
               className={`revelation__autoplay-btn ${autoPlay ? 'revelation__autoplay-btn--on' : ''}`}
               onClick={() => setAutoPlay(v => !v)}
@@ -476,13 +474,11 @@ export default function RevelationScreen({ myId, gameState }: Props) {
           </div>
         )}
 
-        {/* 步驟說明字幕 + autoPlay 進度條 */}
+        {/* 步驟說明 + autoPlay 進度條 */}
         {isReveal && (
           <div className="revelation__step-meta">
             <span className="revelation__step-desc">{STEP_DESCRIPTIONS[currentStep]}</span>
-            {allStepEvents.length > 0 && (
-              <span className="revelation__step-hint">── 有效果，已暫停</span>
-            )}
+            {allStepEvents.length > 0 && <span className="revelation__step-hint">── 有效果，已暫停</span>}
             {autoPlay && allStepEvents.length === 0 && currentStep !== 'complete' && (
               <div className="revelation__progress-bar">
                 <div key={`${currentStep}-progress`} className="revelation__progress-fill" />
@@ -492,44 +488,53 @@ export default function RevelationScreen({ myId, gameState }: Props) {
         )}
       </div>
 
-      {/* ── 主體 ── */}
+      {/* 主體 */}
       <div className="revelation__body">
 
-        {/* 待選擇時：顯示全戰場部署總覽；結算後：顯示結算卡片 */}
         {pendingChoice ? (
           <BattlefieldOverview
-            gameState={gameState}
-            myId={myId}
+            gameState={gameState} myId={myId}
             highlightLocId={pendingChoice.context.locationId}
             onSlotClick={setSlotPopup}
           />
         ) : (
-          <div className="revelation__results">
-            {results.length > 0
-              ? results.map(r => (
-                  <ResultCard
-                    key={r.locationId}
-                    result={r}
-                    gameState={gameState}
-                    myId={myId}
-                    showStep={currentStep}
-                    onSlotClick={setSlotPopup}
-                  />
-                ))
-              : <div className="revelation__empty">本回合無人部署</div>
-            }
+          <div className="revelation__main">
+
+            {/* 已完成地點的歷史 chips */}
+            {prevResults.length > 0 && (
+              <div className="revelation__loc-history">
+                <span className="revelation__loc-history-label">已結算：</span>
+                {prevResults.map(r => (
+                  <LocHistoryChip key={r.locationId} result={r} gameState={gameState} myId={myId} />
+                ))}
+              </div>
+            )}
+
+            {/* 結算卡片 */}
+            <div className="revelation__results">
+              {isRoundEnd
+                ? results.length > 0
+                  ? results.map(r => (
+                      <ResultCard key={r.locationId} result={r} gameState={gameState} myId={myId}
+                        showStep="complete" onSlotClick={setSlotPopup} />
+                    ))
+                  : <div className="revelation__empty">本回合無人部署</div>
+                : currentResult
+                  ? <ResultCard result={currentResult} gameState={gameState} myId={myId}
+                      showStep={currentStep} onSlotClick={setSlotPopup} />
+                  : <div className="revelation__empty">等待結算中…</div>
+              }
+            </div>
           </div>
         )}
 
         {/* 側邊欄 */}
         <div className="revelation__sidebar">
 
-          {/* 本步驟效果摘要 */}
+          {/* 本步驟效果摘要（sidebar） */}
           {isReveal && allStepEvents.length > 0 && (
             <div className="revelation__event-log">
-              <div className="revelation__event-log-title">
-                {STEP_LABELS[currentStep]}階段 效果摘要
-              </div>
+              <div className="revelation__event-log-title">{STEP_LABELS[currentStep]}階段 效果</div>
               {allStepEvents.map((ev, i) => (
                 <div key={i} className={`revelation__event-line ${eventClass(ev)}`}>▸ {ev}</div>
               ))}
@@ -542,21 +547,10 @@ export default function RevelationScreen({ myId, gameState }: Props) {
             {players.map((p, i) => {
               const clanInfo = p.clan ? CLAN_LABEL[p.clan] : null
               return (
-                <div
-                  key={p.id}
-                  className={`revelation__standing-row ${p.id === myId ? 'revelation__standing-row--me' : ''}`}
-                >
+                <div key={p.id} className={`revelation__standing-row ${p.id === myId ? 'revelation__standing-row--me' : ''}`}>
                   <span className="revelation__standing-rank">#{i + 1}</span>
                   <span className="revelation__standing-name">
-                    {clanInfo && (
-                      <span
-                        className="revelation__standing-clan"
-                        style={{ color: clanInfo.color }}
-                        title={clanInfo.zh}
-                      >
-                        {clanInfo.zh}
-                      </span>
-                    )}
+                    {clanInfo && <span className="revelation__standing-clan" style={{ color: clanInfo.color }}>{clanInfo.zh}</span>}
                     {p.name}{p.id === myId && ' (你)'}
                   </span>
                   <span className="revelation__standing-inf">{p.influence} 影</span>
@@ -575,7 +569,6 @@ export default function RevelationScreen({ myId, gameState }: Props) {
             ) : (
               <div className="revelation__confirmed">✓ 已確認</div>
             )}
-
             {waiting.length > 0 && (
               <div className="revelation__waiting">
                 等待：{waiting.map(id => gameState.players[id]?.name ?? '...').join('、')}

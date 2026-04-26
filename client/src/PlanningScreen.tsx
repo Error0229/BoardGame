@@ -262,11 +262,12 @@ export default function PlanningScreen({ myId, gameState }: Props) {
               <div className="loc-card__slots">
                 {mySlots.map((sl, i) => {
                   const clan = me?.clan
-                  const canPeek = !sl.faceDown && sl.cardId
+                  const canPeek = !!sl.cardId  // 自己的牌（含暗牌）都可點擊查看
                   return (
                     <div
                       key={i}
                       className={`loc-slot loc-slot--mine ${canPeek ? 'loc-slot--peekable' : ''}`}
+                      title={sl.faceDown && canPeek ? '暗牌（點擊查看）' : undefined}
                       onClick={e => { e.stopPropagation(); if (canPeek) setSlotPopup({ cardId: sl.cardId!, ownerName: me?.name ?? '我' }) }}
                     >
                       <CardImage cardId={sl.cardId ?? null} clan={clan} faceDown={sl.faceDown} className="loc-slot__img" />

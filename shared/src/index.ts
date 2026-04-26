@@ -156,6 +156,8 @@ export interface GameStateFull {
   log: string[];
   pendingChoices: PendingChoice[];
   resolvedChoices: Record<string, string>;
+  // VE07 先發制人：key = playerId，value = 免疫的 cardId set（當回合有效）
+  forestallImmune: Record<string, Set<string>>;
 }
 
 // ─── Client 收到的狀態 ────────────────────────

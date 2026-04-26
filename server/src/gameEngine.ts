@@ -39,6 +39,7 @@ export class GameEngine {
       log: [],
       pendingChoices: [],
       resolvedChoices: {},
+      forestallImmune: {},
     };
   }
 
@@ -643,6 +644,13 @@ export class GameEngine {
 
     if (active.length === 0) return result;
 
+    console.log(`\n[結算] ── ${loc.name_zh ?? loc.id} ──`);
+    active.forEach(sl => {
+      const p = s.players[sl.playerId];
+      const card = getCardById(sl.cardId);
+      console.log(`  [部署] ${p?.name} | ${card?.name ?? sl.cardId}(${sl.cardId}) | ${sl.faceDown ? '面朝下' : '面朝上'} | 血液代幣:${sl.bloodTokens}`);
+    });
+
     // TO06: 精確血量快照 — 在所有效果前記錄 TO06 持有者的血量
     const to06Snapshots: Record<string, number> = {};
     active.forEach(slot => {
@@ -678,8 +686,14 @@ export class GameEngine {
     // ── Compute effective power ──────────────────
     active.forEach(slot => {
       const p = s.players[slot.playerId]!;
+      if (slot.withdrawn) { slot.effectivePower = 0; return; }
       slot.effectivePower = this.computePower(slot, active, p, loc.id);
       result.scores[slot.playerId] = (result.scores[slot.playerId] ?? 0) + slot.effectivePower;
+      const card = getCardById(slot.cardId);
+      const cardLabel = card ? `${card.name_zh}(${slot.cardId})` : '(unknown)';
+      const faceTag = slot.faceDown ? '[面朝下]' : '';
+      const bloodTag = slot.bloodTokens > 0 ? ` +${slot.bloodTokens}💧` : '';
+      console.log(`  [戰力] ${p.name} | ${cardLabel}${faceTag}${bloodTag} → ${slot.effectivePower}pt  (本地累計: ${result.scores[slot.playerId]})`);
     });
 
     // ── Conflict card effects ────────────────────
@@ -692,7 +706,7 @@ export class GameEngine {
     const playerScores: Record<string, number> = {};
     playerIds.forEach(pid => {
       playerScores[pid] = active
-        .filter(sl => sl.playerId === pid)
+        .filter(sl => sl.playerId === pid && !sl.withdrawn)
         .reduce((sum, sl) => sum + sl.effectivePower, 0);
     });
 
@@ -801,6 +815,12 @@ export class GameEngine {
 
     result.stepEvents.aftermath = result.bloodEvents.slice(afterStart);
 
+    // 結算後血量彙總
+    const bloodSummary = Object.values(s.players)
+      .map(p => `${p.name}:${p.blood}💧/${p.influence}Inf`)
+      .join('  ');
+    console.log(`  [血量] ${bloodSummary}`);
+
     return result;
   }
 
@@ -876,10 +896,10 @@ export class GameEngine {
     const s = this.state;
     active.forEach(slot => {
       const card = getCardById(slot.cardId);
-      if (!card || card.type !== 'preparation') return;
+      if (!card || (card.type !== 'preparation' && card.type !== 'passive')) return;
       if (slot.skipEffects) return; // VE03: 選擇跳過效果
       const p = s.players[slot.playerId]!;
-      const rivals = Object.values(s.players).filter(x => x.id !== slot.playerId);
+      const rivals = Object.values(s.players).filter(x => x.id !== slot.playerId && !s.forestallImmune[x.id]?.has(card.id));
 
       switch (card.id) {
         case 'BR07': { // Show of Force: steal 1 from each rival
@@ -993,7 +1013,7 @@ export class GameEngine {
           const target = targetId ? s.players[targetId] : null;
           if (target && target.hand.length > 0) {
             [...target.hand].forEach(c => {
-              s.deployments[locationId].push({ playerId: target.id, cardId: c.id, faceDown: false, bloodTokens: 0, withdrawn: false, effectivePower: 0 });
+              s.deployments[locationId].push({ playerId: p.id, cardId: c.id, faceDown: false, bloodTokens: 0, withdrawn: false, effectivePower: 0 });
               active.push(s.deployments[locationId][s.deployments[locationId].length-1]);
             });
             target.hand = []; target.handCount = 0;
@@ -1043,26 +1063,28 @@ export class GameEngine {
           }
           break;
         }
-        case 'MA05': { // Chaos: take back own deployed cards, steal 1 per card taken
-          const mySlots = active.filter(sl => sl.playerId === p.id);
-          const taken = mySlots.length;
-          // 收回所有自己的牌（含 MA05）到手牌
-          mySlots.forEach(sl => {
-            sl.withdrawn = true; // 標記撤退，不參與後續戰鬥
+        case 'MA05': { // Chaos: 玩家選擇收回幾張部署牌
+          const key = `MA05:${locationId}:${p.id}`;
+          const takeCount = parseInt(s.resolvedChoices[key] ?? '0', 10);
+          if (takeCount === 0) {
+            result.bloodEvents.push(`${p.name} 混沌：選擇不收回`);
+            break;
+          }
+          const mySlots = active.filter(sl => sl.playerId === p.id && !sl.withdrawn);
+          const toTake = mySlots.slice(0, takeCount);
+          toTake.forEach(sl => {
+            sl.withdrawn = true;
             const c = getCardById(sl.cardId);
             if (c) p.hand.push(c);
           });
           p.handCount = p.hand.length;
-          // 每收回一張，從每個對手偷 1 血
           let stolen = 0;
-          for (let i = 0; i < taken; i++) {
+          for (let i = 0; i < toTake.length; i++) {
             rivals.forEach(r => { if (r.blood > 0) { r.blood--; stolen++; } });
           }
           p.blood += stolen;
-          if (taken > 0) {
-            result.bloodEvents.push(`${p.name} 混沌：收回 ${taken} 張牌，偷取 ${stolen}💧`);
-            this.log(`${p.name} 的混沌：收回 ${taken} 張，偷 ${stolen} 血`);
-          }
+          result.bloodEvents.push(`${p.name} 混沌：收回 ${toTake.length} 張牌，偷取 ${stolen}💧`);
+          this.log(`${p.name} 的混沌：收回 ${toTake.length} 張，偷 ${stolen} 血`);
           break;
         }
       }
@@ -1129,10 +1151,10 @@ export class GameEngine {
     const s = this.state;
     active.forEach(slot => {
       const card = getCardById(slot.cardId);
-      if (!card || card.type !== 'aftermath') return;
+      if (!card || (card.type !== 'aftermath' && card.type !== 'passive')) return;
       if (slot.skipEffects) return; // VE03: 選擇跳過效果
       const p = s.players[slot.playerId]!;
-      const rivals = Object.values(s.players).filter(x => x.id !== slot.playerId);
+      const rivals = Object.values(s.players).filter(x => x.id !== slot.playerId && !s.forestallImmune[x.id]?.has(card.id));
       const isWinner = result.winner === slot.playerId;
 
       // ── Hunt-type cards (steal 1 from each rival) ──
@@ -1264,25 +1286,54 @@ export class GameEngine {
           this.log(`${p.name} 的一步超前：對手面朝下牌各扣 2 血液`);
           break;
         }
-        case 'MA02': { // Auction of Blood: 秘密競標，最低者翻牌，血液留在此地點
-          // 簡化：所有玩家中血液最少者失去 1 血液並翻轉一張面朝下牌；
-          // 其他人失去 1 血液至此地點血液代幣池
+        case 'MA02': { // Auction of Blood: 讀取秘密競標結果結算
           const presentPlayerIds = [...new Set(active.map(sl => sl.playerId))];
           if (presentPlayerIds.length < 2) break;
-          const sorted = presentPlayerIds
-            .map(pid => ({ pid, blood: s.players[pid]?.blood ?? 0 }))
-            .sort((a, b) => a.blood - b.blood);
-          const loser = s.players[sorted[0].pid];
-          if (loser) {
-            const fdSlot = active.find(sl => sl.playerId === loser.id && sl.faceDown);
-            if (fdSlot) { fdSlot.faceDown = false; result.bloodEvents.push(`${loser.name} 血液競標失敗：翻牌`); }
-            loser.blood = Math.max(0, loser.blood - 1);
-          }
-          sorted.slice(1).forEach(({ pid }) => {
-            const player = s.players[pid];
-            if (player && player.blood > 0) { player.blood--; slot.bloodTokens++; }
+
+          // 讀取每人出價，未回應者視為出價 0
+          const bids: { pid: string; bid: number }[] = presentPlayerIds.map(pid => {
+            const key = `MA02:${locationId}:${pid}`;
+            const raw = s.resolvedChoices[key] ?? 'bid_0';
+            const bid = parseInt(raw.replace('bid_', ''), 10) || 0;
+            return { pid, bid };
           });
-          this.log(`${p.name} 的血液拍賣結算`);
+
+          // 找最低出價（平手時都算輸）
+          const minBid = Math.min(...bids.map(b => b.bid));
+          const losers = bids.filter(b => b.bid === minBid);
+          const nonLosers = bids.filter(b => b.bid > minBid);
+
+          // 公開出價結果
+          const bidSummary = bids.map(b => `${s.players[b.pid]?.name}:${b.bid}💧`).join('、');
+          result.bloodEvents.push(`${p.name} 血液拍賣出價揭曉：${bidSummary}`);
+
+          // 最低出價者：扣血 + 翻一張面朝下牌（若有）
+          for (const { pid, bid } of losers) {
+            const loser = s.players[pid]; if (!loser) continue;
+            loser.blood = Math.max(0, loser.blood - bid);
+            const fdSlot = active.find(sl => sl.playerId === pid && sl.faceDown);
+            if (fdSlot) {
+              fdSlot.faceDown = false;
+              result.bloodEvents.push(`${loser.name} 出價最低（${bid}💧），扣血並翻開一張牌`);
+            } else {
+              result.bloodEvents.push(`${loser.name} 出價最低（${bid}💧），扣血`);
+            }
+          }
+
+          // 其他玩家：若是持牌者 → 出價留在地點；否則出價血液消耗
+          for (const { pid, bid } of nonLosers) {
+            const bidder = s.players[pid]; if (!bidder) continue;
+            bidder.blood = Math.max(0, bidder.blood - bid);
+            if (pid === slot.playerId) {
+              // 持牌者出價部署至此地點
+              slot.bloodTokens += bid;
+              result.bloodEvents.push(`${bidder.name}（持牌者）出價 ${bid}💧 → 部署至此地點`);
+            } else {
+              result.bloodEvents.push(`${bidder.name} 出價 ${bid}💧 → 消耗`);
+            }
+          }
+
+          this.log(`${p.name} 的血液拍賣結算完成`);
           break;
         }
         case 'MA06': { // Malkav's Bane: 翻牌後抽頂牌至此地點
@@ -1302,8 +1353,11 @@ export class GameEngine {
             const tCard = getCardById(tCardId);
             if (tCard && tCard.power > 0) {
               p.blood += tCard.power;
-              result.bloodEvents.push(`${p.name} 先發制人：目標 ${tCard.name_zh}，+${tCard.power}💧`);
-              this.log(`${p.name} 的先發制人選擇 ${tCard.name_zh}，獲得 ${tCard.power} 血液`);
+              // 記錄免疫：此玩家對此牌的失血/偷血效果免疫
+              if (!s.forestallImmune[p.id]) s.forestallImmune[p.id] = new Set();
+              s.forestallImmune[p.id].add(tCardId);
+              result.bloodEvents.push(`${p.name} 先發制人：目標 ${tCard.name_zh}，+${tCard.power}💧，免疫其失血/偷血效果`);
+              this.log(`${p.name} 的先發制人選擇 ${tCard.name_zh}，獲得 ${tCard.power} 血液，免疫其效果`);
             }
           } else {
             // fallback: highest
@@ -1487,6 +1541,7 @@ export class GameEngine {
     const s = this.state;
     s.pendingChoices = [];
     s.resolvedChoices = {};
+    s.forestallImmune = {};
     let n = 0;
 
     // 只掃描當前結算地點
@@ -1624,6 +1679,54 @@ export class GameEngine {
             }
             break;
 
+          case 'MA05': { // 混沌：選擇收回幾張自己的部署牌（0 到全部）
+            const myDeployed = allAtLoc.filter(sl => sl.playerId === slot.playerId);
+            const maxTake = myDeployed.length;
+            const options: { key: string; label_zh: string }[] = [
+              { key: '0', label_zh: '不收回（保持部署）' },
+            ];
+            for (let i = 1; i <= maxTake; i++) {
+              const stolen = i * rivals.length;
+              options.push({ key: String(i), label_zh: `收回 ${i} 張，從每個對手各偷 1💧（共 +${stolen}💧）` });
+            }
+            s.pendingChoices.push(this.makeChoice(n++, slot.playerId,
+              `【混沌】選擇從此地點收回幾張自己的部署牌：`,
+              options, card.id, locId, slot.playerId, owner.name));
+            break;
+          }
+
+          case 'MA07': { // 無腦衝擊：選擇將自己幾張部署牌翻至面朝下（0 到全部）
+            const myFaceUp = allAtLoc.filter(sl => sl.playerId === slot.playerId && !sl.faceDown && sl.cardId !== 'MA07');
+            if (myFaceUp.length > 0) {
+              const flipOptions: { key: string; label_zh: string }[] = [
+                { key: '0', label_zh: '不翻面（保持面朝上）' },
+              ];
+              for (let i = 1; i <= myFaceUp.length; i++) {
+                flipOptions.push({ key: String(i), label_zh: `翻 ${i} 張面朝下（各得 4 戰力）` });
+              }
+              s.pendingChoices.push(this.makeChoice(n++, slot.playerId,
+                `【無腦衝擊】選擇將幾張部署牌翻至面朝下：`,
+                flipOptions, card.id, locId, slot.playerId, owner.name));
+            }
+            break;
+          }
+
+          case 'MA02': { // 血液拍賣：所有在場玩家秘密出價，最低者翻牌，持牌者出價留在地點，對手出價消耗
+            const allHere = [...new Set(allAtLoc.map(sl => sl.playerId))];
+            for (const pid of allHere) {
+              const bidder = s.players[pid]; if (!bidder) continue;
+              const maxBid = bidder.blood;
+              const bidOptions = Array.from({ length: maxBid + 1 }, (_, i) => ({
+                key: `bid_${i}`,
+                label_zh: i === 0 ? '出價 0💧（不押注）' : `出價 ${i}💧`,
+              }));
+              s.pendingChoices.push(this.makeChoice(n++, pid,
+                `【血液拍賣】${owner.name} 的血液拍賣：秘密出價（你最多可出 ${maxBid}💧）：`,
+                bidOptions, card.id, locId, slot.playerId, owner.name));
+            }
+            break;
+          }
+
           case 'VE07': { // 先發制人：選擇一名對手的面朝上牌，免疫其效果並獲得其印刷戰力血液
             const rivalFaceUpCards: {key:string;label_zh:string}[] = [];
             active.filter(sl=>sl.playerId!==slot.playerId).forEach(sl=>{
@@ -1675,8 +1778,11 @@ export class GameEngine {
           s.deployments[locId]?.filter(sl=>sl.playerId===choice.playerId&&!sl.withdrawn).forEach(sl=>{ sl.withdrawn=true; });
           this.log(`${player.name} 選擇撤退（大規模操控）`);
         } else {
-          player.blood = Math.max(0, player.blood - 2);
-          this.log(`${player.name} 選擇失去 2💧（大規模操控）`);
+          const stolen = Math.min(player.blood, 2);
+          player.blood -= stolen;
+          const caster = s.players[choice.context.sourcePlayerId];
+          if (caster) caster.blood += stolen;
+          this.log(`${player.name} 選擇留守，${caster?.name ?? '施術者'} 偷取 ${stolen}💧（大規模操控）`);
         }
         break;
 
@@ -1744,6 +1850,24 @@ export class GameEngine {
         }
         break;
       }
+
+      case 'MA07': {
+        const flipCount = parseInt(option, 10) || 0;
+        if (flipCount > 0) {
+          const targets = (s.deployments[locId] ?? [])
+            .filter(sl => sl.playerId === choice.playerId && !sl.faceDown && sl.cardId !== 'MA07');
+          targets.slice(0, flipCount).forEach(sl => { sl.faceDown = true; });
+          this.log(`${player.name} 無腦衝擊：翻 ${flipCount} 張面朝下（各得 4 戰力）`);
+        } else {
+          this.log(`${player.name} 無腦衝擊：選擇不翻面`);
+        }
+        break;
+      }
+
+      case 'MA02':
+        // 只記錄，結算在 applyAftermath 讀取所有人出價後統一執行
+        this.log(`${player.name} 已秘密出價（血液拍賣）`);
+        break;
 
       default:
         // GA05, GA07, TR05, TR07, NO07, MA01, VE07 — 在 resolution 時由 applyPreparation/applyAftermath 讀取

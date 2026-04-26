@@ -29,6 +29,13 @@
   text-align: center;
 }
 
+.withdraw__progress {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold);
+  letter-spacing: 0.5px;
+}
+
 .withdraw__status {
   font-size: 13px;
   color: var(--text-dim);
@@ -247,6 +254,13 @@
   border-color: var(--gold);
   color: var(--gold);
   background: rgba(201,162,39,0.08);
+}
+
+.wd-loc__no-retreat {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+  padding: 4px 0;
 }
 
 /* ── Submit button ── */
