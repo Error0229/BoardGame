@@ -269,8 +269,14 @@ export default function PlanningScreen({ myId, gameState }: Props) {
                       <div className="loc-card__ally-stats">
                         <span>🏛 影響力 +{ally.influence}（持有期間）</span>
                         {ally.feedBlood > 0 && <span>🩸 每回合 +{ally.feedBlood} 血</span>}
-                        {ally.drainBlood > 0 && <span>⚡ 汲取得 +{ally.drainBlood} 血（失去此牌）</span>}
-                        {ally.drainInfluence > 0 && <span>⚡ 汲取得 +{ally.drainInfluence} 影響力（失去此牌）</span>}
+                        {(ally.drainBlood > 0 || ally.drainInfluence > 0) && (
+                          <span>
+                            ⚡ 汲取得
+                            {ally.drainBlood > 0 && ` +${ally.drainBlood} 血`}
+                            {ally.drainInfluence > 0 && ` +${ally.drainInfluence} 影響力`}
+                            （失去此牌）
+                          </span>
+                        )}
                       </div>
                       {ally.effect_zh && <div className="loc-card__ally-effect">{ally.effect_zh}</div>}
                     </>
@@ -351,8 +357,14 @@ export default function PlanningScreen({ myId, gameState }: Props) {
                 <div className="ally-tile__stats">
                   <span>🏛 影響力 +{ally.influence}（持有期間）</span>
                   {ally.feedBlood > 0 && <span>🩸 每回合 +{ally.feedBlood} 血</span>}
-                  {ally.drainBlood > 0 && <span>⚡ 汲取得 +{ally.drainBlood} 血（失去此牌）</span>}
-                  {ally.drainInfluence > 0 && <span>⚡ 汲取得 +{ally.drainInfluence} 影響力（失去此牌）</span>}
+                  {(ally.drainBlood > 0 || ally.drainInfluence > 0) && (
+                    <span>
+                      ⚡ 汲取得
+                      {ally.drainBlood > 0 && ` +${ally.drainBlood} 血`}
+                      {ally.drainInfluence > 0 && ` +${ally.drainInfluence} 影響力`}
+                      （失去此牌）
+                    </span>
+                  )}
                 </div>
                 {ally.effect_zh && <div className="ally-tile__effect">{ally.effect_zh}</div>}
                 {!ally.drained && !alreadyDone && (
