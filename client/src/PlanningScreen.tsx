@@ -450,7 +450,7 @@ export default function PlanningScreen({ myId, gameState }: Props) {
                 </div>
                 {isVampire && (
                   <div className={`drain-confirm__penalty ${willEliminate ? 'drain-confirm__penalty--fatal' : ''}`}>
-                    業報代幣：{currentDiablerie} → <strong>{afterDiablerie}</strong> / 3
+                    弒親代幣：{currentDiablerie} → <strong>{afterDiablerie}</strong> / 3
                     {willEliminate
                       ? ' 💀 第 3 枚！你將被淘汰出局！'
                       : afterDiablerie === 2

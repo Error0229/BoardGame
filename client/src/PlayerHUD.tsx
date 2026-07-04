@@ -64,7 +64,7 @@ export default function PlayerHUD({ myId, gameState }: Props) {
         )}
         {me.diablerie > 0 && (
           <span className={`player-hud__stat player-hud__stat--diablerie ${me.diablerie >= 2 ? 'player-hud__stat--diab-warn' : ''}`}
-            title={me.diablerie >= 2 ? '再汲取一次吸血鬼同盟牌將被淘汰！' : `業報代幣 ${me.diablerie}/3`}
+            title={me.diablerie >= 2 ? '再汲取一次吸血鬼同盟牌將被淘汰！' : `弒親代幣 ${me.diablerie}/3`}
           >
             <span className="player-hud__label">{me.diablerie >= 2 ? '⚠ 弒親' : '弒親'}</span>
             <span className="player-hud__val">{me.diablerie}/3</span>

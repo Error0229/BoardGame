@@ -82,7 +82,7 @@ function Seat({ p, isMe, status, isDone, isTarget, isWinner, turnNo }: {
         <SeatStat value={p.influence} icon="🏆" className="seat__stat--inf" title="影響力" />
         <span className="seat__stat" title="手牌數">🂠{p.handCount}</span>
         {p.diablerie > 0 && (
-          <span className="seat__stat seat__stat--diab" title={`業報代幣 ${p.diablerie}/3`}>👁{p.diablerie}</span>
+          <span className="seat__stat seat__stat--diab" title={`弒親代幣 ${p.diablerie}/3`}>👁{p.diablerie}</span>
         )}
       </div>
       {isActive && <div className="seat__active-label">{status}</div>}

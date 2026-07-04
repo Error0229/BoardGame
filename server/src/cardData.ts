@@ -132,7 +132,7 @@ const BRUJAH_CARDS: CardDef[] = [
     type: 'conflict',
     power: 6,
     effect_en: 'If you have any Deployed blood at this Location, this card gets -2 Power.',
-    effect_zh: '若你在此地點有任何部署血液，此牌的權力值 -2。',
+    effect_zh: '若你在此地點有任何部署血液，此牌的戰力 -2。',
     is_starter: false,
   },
   {
@@ -143,7 +143,7 @@ const BRUJAH_CARDS: CardDef[] = [
     type: 'conflict',
     power: 0,
     effect_en: 'This card gets +2 Power for each of your Deployed cards at this Location, including this one.',
-    effect_zh: '此牌獲得 +2 權力值，等同你在此地點的每張部署牌數量（包含此牌本身）。',
+    effect_zh: '此牌獲得 +2 戰力，等同你在此地點的每張部署牌數量（包含此牌本身）。',
     is_starter: false,
   },
   {
@@ -225,7 +225,7 @@ const NOSFERATU_CARDS: CardDef[] = [
     type: 'passive',
     power: 1,
     effect_en: "This card gets +2 Power when it is Deployed at the Prince's Haven.",
-    effect_zh: '當此牌部署在王子的避難所時，獲得 +2 權力值。',
+    effect_zh: '當此牌部署在王子的避難所時，獲得 +2 戰力。',
     is_starter: true,
   },
   {
@@ -351,7 +351,7 @@ const TOREADOR_CARDS: CardDef[] = [
     type: 'conflict',
     power: 0,
     effect_en: 'This card gets +1 Power for each card in your Alliance (up to +7 max).',
-    effect_zh: '此牌獲得 +1 權力值，等同你同盟中的牌數（最多 +7）。',
+    effect_zh: '此牌獲得 +1 戰力，等同你同盟中的牌數（最多 +7）。',
     is_starter: false,
   },
   {
@@ -384,7 +384,7 @@ const TOREADOR_CARDS: CardDef[] = [
     type: 'conflict',
     power: 0,
     effect_en: "This card gets +1 Power for each Deployed card at this Location (at your Position and all Rivals').",
-    effect_zh: '此牌獲得 +1 權力值，等同此地點所有位置的部署牌數量（包含你的位置和所有對手的位置）。',
+    effect_zh: '此牌獲得 +1 戰力，等同此地點所有位置的部署牌數量（包含你的位置和所有對手的位置）。',
     is_starter: false,
   },
   {
@@ -444,7 +444,7 @@ const TREMERE_CARDS: CardDef[] = [
     type: 'conflict',
     power: 9,
     effect_en: 'This card gets -1 Power for each blood you have in your Pool.',
-    effect_zh: '此牌的權力值 -1，等同你資源池中的每點血液數。',
+    effect_zh: '此牌的戰力 -1，等同你資源池中的每點血液數。',
     is_starter: false,
   },
   {
@@ -537,7 +537,7 @@ const MALKAVIAN_CARDS: CardDef[] = [
     type: 'conflict',
     power: 0,
     effect_en: 'This card gets +1 Power for each of your Deployed cards at this Location, including this one.',
-    effect_zh: '此牌獲得 +1 權力值，等同你在此地點的每張部署牌數量（包含此牌本身）。',
+    effect_zh: '此牌獲得 +1 戰力，等同你在此地點的每張部署牌數量（包含此牌本身）。',
     is_starter: true,
   },
   {
@@ -581,7 +581,7 @@ const MALKAVIAN_CARDS: CardDef[] = [
     type: 'conflict',
     power: 3,
     effect_en: 'If you have the lowest number of face up Deployed cards at this Location (even if you are tied), this card gets +2 Power.',
-    effect_zh: '若你在此地點面朝上的部署牌數量最少（即使平手），此牌獲得 +2 權力值。',
+    effect_zh: '若你在此地點面朝上的部署牌數量最少（即使平手），此牌獲得 +2 戰力。',
     is_starter: false,
   },
   {
@@ -614,7 +614,7 @@ const MALKAVIAN_CARDS: CardDef[] = [
     type: 'preparation',
     power: 3,
     effect_en: 'You may choose to flip 1 or more Deployed cards on your position at this Location face down; each face down Deployed card on your Position at this Location has 4 Power.',
-    effect_zh: '你可以選擇將你在此地點位置上的 1 張或多張部署牌翻至面朝下；你在此地點位置上的每張面朝下部署牌的權力值為 4。',
+    effect_zh: '你可以選擇將你在此地點位置上的 1 張或多張部署牌翻至面朝下；你在此地點位置上的每張面朝下部署牌的戰力為 4。',
     is_starter: false,
   },
 ];
@@ -663,7 +663,7 @@ const GANGREL_CARDS: CardDef[] = [
     type: 'conflict',
     power: 2,
     effect_en: "The printed Power value on each of your Rivals' Deployed cards at this Location is halved (rounded down).",
-    effect_zh: '此地點每個對手的部署牌的印刷權力值減半（向下取整）。',
+    effect_zh: '此地點每個對手的部署牌的印刷戰力減半（向下取整）。',
     is_starter: false,
   },
   {
@@ -674,7 +674,7 @@ const GANGREL_CARDS: CardDef[] = [
     type: 'conflict',
     power: 1,
     effect_en: 'Each Deployed blood you have at this Location adds 2 Power (instead of 1).',
-    effect_zh: '你在此地點的每點部署血液提供 2 點權力值（而非 1 點）。',
+    effect_zh: '你在此地點的每點部署血液提供 2 點戰力（而非 1 點）。',
     is_starter: false,
   },
   {
@@ -756,7 +756,7 @@ const VENTRUE_CARDS: CardDef[] = [
     type: 'passive',
     power: 3,
     effect_en: 'At the end of the Planning Phase, each opponent with no Deployed cards here Loses 1 Influence. This card gets +1 Power for each Rival at this Location.',
-    effect_zh: '規劃階段結束時，每個在此地點沒有部署牌的對手失去 1 點影響力。此牌獲得 +1 權力值，等同此地點的對手數。',
+    effect_zh: '規劃階段結束時，每個在此地點沒有部署牌的對手失去 1 點影響力。此牌獲得 +1 戰力，等同此地點的對手數。',
     is_starter: false,
   },
   {
@@ -767,7 +767,7 @@ const VENTRUE_CARDS: CardDef[] = [
     type: 'conflict',
     power: 3,
     effect_en: 'Before applying any other effect, the Deployed card with the highest printed Power at this Location (ignoring those at your Position) has its Power reduced to 0. In case of a tie, all tied cards are affected.',
-    effect_zh: '在套用任何其他效果之前，此地點印刷權力值最高的部署牌（忽略你位置上的）的權力值降至 0。若有平手，所有平手的牌均受影響。',
+    effect_zh: '在套用任何其他效果之前，此地點印刷戰力最高的部署牌（忽略你位置上的）的戰力降至 0。若有平手，所有平手的牌均受影響。',
     is_starter: false,
   },
   {
@@ -789,7 +789,7 @@ const VENTRUE_CARDS: CardDef[] = [
     type: 'conflict',
     power: 0,
     effect_en: 'The Power of this card is equal to the highest printed Power value on a Deployed card at this Location.',
-    effect_zh: '此牌的權力值等同此地點印刷權力值最高的部署牌。',
+    effect_zh: '此牌的戰力等同此地點印刷戰力最高的部署牌。',
     is_starter: false,
   },
   {
@@ -822,7 +822,7 @@ const VENTRUE_CARDS: CardDef[] = [
     type: 'passive',
     power: 3,
     effect_en: 'Immediately after Revelation, choose 1 Deployed card at a Rival\'s Position. You are immune to any Lose blood or Steal blood effect on that card and you Gain blood equal to its printed Power value.',
-    effect_zh: '揭牌後立即，選擇對手位置上的 1 張部署牌。你免疫該牌的任何失去血液或偷取血液效果，並獲得等同其印刷權力值的血液。',
+    effect_zh: '揭牌後立即，選擇對手位置上的 1 張部署牌。你免疫該牌的任何失去血液或偷取血液效果，並獲得等同其印刷戰力的血液。',
     is_starter: false,
   },
 ];
@@ -894,7 +894,7 @@ export const ALLY_POOL: AllyCard[] = [
   { id: 'AL08', name: 'Fiorenza Savona',    type: 'vampire', influence: 3, feedBlood: 0, drainBlood: 3, drainInfluence: 1, effect_zh: '你在所有平局中獲勝。' },
   { id: 'AL05', name: 'Carmelita Neillson', type: 'vampire', influence: 3, feedBlood: 0, drainBlood: 3, drainInfluence: 1, effect_zh: '每當你在王子的避難所打出牌時，從銀行取 1 點血液放置於該地點。' },
   { id: 'AL06', name: 'Maldavis',           type: 'vampire', influence: 3, feedBlood: 0, drainBlood: 3, drainInfluence: 1, effect_zh: '獲得此盟友時，獲得 5 點血液。' },
-  { id: 'AL14', name: 'Edward Neally',      type: 'vampire', influence: 5, feedBlood: 0, drainBlood: 3, drainInfluence: 3, effect_zh: '若你汲取此盟友，獲得 2 個弒祖標記而非 1 個。' },
+  { id: 'AL14', name: 'Edward Neally',      type: 'vampire', influence: 5, feedBlood: 0, drainBlood: 3, drainInfluence: 3, effect_zh: '若你汲取此盟友，獲得 2 個弒親代幣而非 1 個。' },
   { id: 'AL02', name: 'Sgt. McTavish',      type: 'vampire', influence: 3, feedBlood: 0, drainBlood: 3, drainInfluence: 1, effect_zh: '獲得此盟友時，從每位對手竊取 2 點血液。' },
   { id: 'AL01', name: 'Anita Wainwright',   type: 'vampire', influence: 3, feedBlood: 0, drainBlood: 3, drainInfluence: 1, effect_zh: '獲得此盟友時，獲得 3 點血液。' },
   { id: 'AL12', name: 'Talley',             type: 'vampire', influence: 2, feedBlood: -1, drainBlood: 3, drainInfluence: 0, effect_zh: '當你迫使對手陷入狂怒時，額外獲得 +1 影響力。' },

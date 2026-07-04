@@ -54,7 +54,7 @@ export default function GameOverScreen({ myId, gameState }: Props) {
             <span className="gameover__score">{p.influence} 影</span>
             <span className="gameover__blood">{p.blood} 血</span>
             {p.diablerie > 0 && (
-              <span className="gameover__diablerie" title={`業報代幣 ${p.diablerie} 枚（每枚扣 1 影響力）`}>
+              <span className="gameover__diablerie" title={`弒親代幣 ${p.diablerie} 枚（每枚扣 1 影響力）`}>
                 👁 {p.diablerie}
               </span>
             )}
