@@ -1,0 +1,199 @@
+.seats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+.seat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 128px;
+  padding: 8px 12px 9px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--seat-clan, var(--border));
+  border-radius: 8px;
+  font-size: 12px;
+  transition: border-color 0.2s, box-shadow 0.25s, opacity 0.2s, transform 0.2s;
+}
+
+/* 當前行動者:氏族色光暈 + 微浮起 */
+.seat--active {
+  border-color: var(--seat-clan, var(--blood-bright));
+  box-shadow: 0 0 0 1px var(--seat-clan, var(--blood-bright)),
+              0 0 18px rgba(204, 34, 34, 0.35);
+  transform: translateY(-2px);
+}
+
+.seat--done {
+  opacity: 0.62;
+}
+
+.seat--me {
+  background: linear-gradient(rgba(201, 162, 39, 0.05), rgba(201, 162, 39, 0.05)), var(--bg-2);
+}
+
+.seat--danger:not(.seat--active) {
+  border-color: rgba(204, 34, 34, 0.55);
+}
+
+.seat__top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.seat__order {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg-3);
+  border: 1px solid var(--text-dim);
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.seat--active .seat__order {
+  background: var(--blood);
+  border-color: var(--blood-bright);
+  color: #ffd0d0;
+}
+
+.seat__name {
+  font-weight: 700;
+  color: var(--text-h);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.seat__me-tag {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--gold);
+  border: 1px solid var(--gold-dim);
+  border-radius: 8px;
+  padding: 0 5px;
+  flex-shrink: 0;
+}
+
+.seat__done-mark {
+  margin-left: auto;
+  color: #6dbf6d;
+  font-weight: 700;
+}
+
+.seat__clan {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--seat-clan, var(--text-dim));
+}
+
+.seat__stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.seat__stat { white-space: nowrap; }
+.seat__stat--blood { color: #cc6666; }
+.seat__stat--blood.seat__stat--low { color: var(--blood-bright); font-weight: 700; }
+.seat__stat--inf { color: var(--gold); }
+.seat__stat--diab { color: #c07aff; }
+
+/* 目前效果的目標:紅色脈衝(正在被影響) */
+@keyframes seat-target-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px var(--blood-bright), 0 0 10px rgba(204, 34, 34, 0.3); }
+  50%      { box-shadow: 0 0 0 2px var(--blood-bright), 0 0 24px rgba(204, 34, 34, 0.65); }
+}
+
+.seat--target {
+  border-color: var(--blood-bright);
+  animation: seat-target-pulse 0.9s ease-in-out infinite;
+}
+
+/* 地點勝者:加冕 */
+@keyframes seat-crown-pop {
+  0%   { transform: translateY(6px) scale(0.4); opacity: 0; }
+  60%  { transform: translateY(-2px) scale(1.25); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.seat--winner {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold), 0 0 18px rgba(201, 162, 39, 0.4);
+}
+
+.seat__crown {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 16px;
+  color: var(--gold);
+  animation: seat-crown-pop 0.5s ease both;
+  text-shadow: 0 0 8px rgba(201, 162, 39, 0.8);
+}
+
+/* 座位數值 delta 飄字 */
+.seat__stat-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+@keyframes seat-delta-float {
+  0%   { opacity: 1; transform: translateY(0); }
+  60%  { opacity: 1; transform: translateY(-12px); }
+  100% { opacity: 0; transform: translateY(-18px); }
+}
+
+.seat__delta {
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: seat-delta-float 1.4s ease-out forwards;
+  z-index: 10;
+}
+
+.seat__delta--up   { color: #6dbf6d; }
+.seat__delta--down { color: var(--blood-bright); }
+
+@keyframes seat-active-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+.seat__active-label {
+  position: absolute;
+  top: -9px;
+  right: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 1px 8px;
+  border-radius: 8px;
+  background: var(--blood);
+  color: #ffd0d0;
+  animation: seat-active-pulse 1.3s ease-in-out infinite;
+}

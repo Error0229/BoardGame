@@ -11,6 +11,7 @@
   --gold: #c9a227;
   --gold-dim: #7a6018;
   --shadow: 0 4px 24px rgba(0,0,0,0.6);
+  --font-display: 'Palatino Linotype', 'Book Antiqua', Georgia, 'Noto Serif TC', serif;
 
   font: 16px/150% 'Segoe UI', system-ui, sans-serif;
   color: var(--text);
@@ -40,12 +41,29 @@ button {
   border: none;
   border-radius: 4px;
   font: inherit;
-  transition: background 0.15s, opacity 0.15s;
+  transition: background 0.15s, opacity 0.15s, transform 0.1s;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 input {

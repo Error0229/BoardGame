@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import type { CardDef, GameStateClient } from '@kindred/shared'
 import socket from './socket'
 import CardImage from './CardImage'
+import WaitingPlayers from './WaitingPlayers'
 import './HandBuildScreen.css'
 
 interface Props {
@@ -15,10 +17,10 @@ const TYPE_LABEL: Record<string, string> = {
   passive:     '持續',
 }
 
-function CardTile({ card, onPick, disabled }: { card: CardDef; onPick?: () => void; disabled?: boolean }) {
+function CardTile({ card, onPick, disabled, selected }: { card: CardDef; onPick?: () => void; disabled?: boolean; selected?: boolean }) {
   return (
     <button
-      className={`card-tile ${onPick ? 'card-tile--pickable' : ''}`}
+      className={`card-tile ${onPick ? 'card-tile--pickable' : ''} ${selected ? 'card-tile--selected' : ''}`}
       onClick={onPick}
       disabled={disabled}
     >
@@ -55,8 +57,16 @@ export default function HandBuildScreen({ myId, gameState }: Props) {
   const waiting = gameState.waitingFor
   const alreadyPicked = draft.length === 0
 
-  function pick(cardId: string) {
-    socket.emit('selectHandCard', cardId)
+  const [pendingCard, setPendingCard] = useState<CardDef | null>(null)
+
+  function selectCard(card: CardDef) {
+    setPendingCard(card)
+  }
+
+  function confirmPick() {
+    if (!pendingCard) return
+    socket.emit('selectHandCard', pendingCard.id)
+    setPendingCard(null)
   }
 
   return (
@@ -72,10 +82,22 @@ export default function HandBuildScreen({ myId, gameState }: Props) {
           <>
             <div className="handbuild__draft">
               {draft.map(card => (
-                <CardTile key={card.id} card={card} onPick={() => pick(card.id)} />
+                <CardTile
+                  key={card.id}
+                  card={card}
+                  onPick={() => selectCard(card)}
+                  selected={pendingCard?.id === card.id}
+                />
               ))}
             </div>
-            {hand.length > 0 && <TypeDistribution cards={[...hand, ...draft]} label="加入後手牌分布（預覽）" />}
+            {hand.length > 0 && <TypeDistribution cards={[...hand, ...(pendingCard ? [pendingCard] : [])]} label={pendingCard ? '加入後手牌分布（預覽）' : '目前手牌分布'} />}
+            {pendingCard && (
+              <div className="handbuild__confirm-bar">
+                <span className="handbuild__confirm-card">選擇：<strong>{pendingCard.name_zh}</strong></span>
+                <button className="btn-primary handbuild__confirm-btn" onClick={confirmPick}>確認加入手牌</button>
+                <button className="btn-ghost" onClick={() => setPendingCard(null)}>重新選擇</button>
+              </div>
+            )}
           </>
         )}
       </section>
@@ -95,9 +117,7 @@ export default function HandBuildScreen({ myId, gameState }: Props) {
 
       {/* Waiting indicator */}
       {alreadyPicked && waiting.length > 0 && (
-        <div className="handbuild__waiting">
-          等待：{waiting.map(id => gameState.players[id]?.name ?? id).join('、')}
-        </div>
+        <WaitingPlayers gameState={gameState} myId={myId} doneLabel="已選牌" />
       )}
     </div>
   )

@@ -5,13 +5,27 @@
   padding: 6px 32px;
   background: var(--bg-2);
   border-bottom: 1px solid var(--border);
+  border-left: 3px solid var(--hud-clan, transparent);
   font-size: 12px;
 }
 
 .player-hud__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 700;
   color: var(--gold);
   white-space: nowrap;
+}
+
+.player-hud__clan {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 10px;
+  color: var(--hud-clan, var(--text-dim));
+  border: 1px solid currentColor;
+  letter-spacing: 1px;
 }
 
 .player-hud__divider {
@@ -60,6 +74,55 @@
   color: #c07aff;
 }
 
+.player-hud__stat--diab-warn {
+  background: rgba(139,0,0,0.2);
+  border: 1px solid rgba(200,50,50,0.5);
+  border-radius: 4px;
+  padding: 1px 6px;
+  animation: diab-pulse 1.2s ease-in-out infinite;
+}
+
+.player-hud__stat--diab-warn .player-hud__val {
+  color: var(--blood-bright);
+}
+
+@keyframes diab-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
 .player-hud__stat--deploys .player-hud__val {
   color: #6dbf6d;
 }
+
+/* ── delta 飄字動畫 ── */
+
+.player-hud__val-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+@keyframes hud-delta-float {
+  0%   { opacity: 1;   transform: translateY(0); }
+  60%  { opacity: 1;   transform: translateY(-14px); }
+  100% { opacity: 0;   transform: translateY(-22px); }
+}
+
+.player-hud__delta {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: hud-delta-float 1.4s ease-out forwards;
+  z-index: 10;
+}
+
+.player-hud__delta--blood.player-hud__delta--up   { color: #e05050; }
+.player-hud__delta--blood.player-hud__delta--down  { color: #e05050; }
+.player-hud__delta--influence.player-hud__delta--up   { color: var(--gold); }
+.player-hud__delta--influence.player-hud__delta--down  { color: #c0a020; }

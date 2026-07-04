@@ -1,14 +1,10 @@
 import type { GameStateClient } from '@kindred/shared'
+import { clanOf } from './clans'
 import './GameOverScreen.css'
 
 interface Props {
   myId: string
   gameState: GameStateClient
-}
-
-const CLAN_LABEL: Record<string, string> = {
-  brujah: '布魯哈', nosferatu: '諾斯費拉圖', toreador: '托雷亞多爾',
-  tremere: '特雷梅爾', malkavian: '馬爾卡維安', gangrel: '剛格烈', ventrue: '凡崔',
 }
 
 const RANK_MEDAL = ['🏆', '🥈', '🥉']
@@ -47,12 +43,21 @@ export default function GameOverScreen({ myId, gameState }: Props) {
             'gameover__row',
             p.id === myId ? 'gameover__row--me'    : '',
             i === 0       ? 'gameover__row--first'  : '',
-          ].filter(Boolean).join(' ')}>
+          ].filter(Boolean).join(' ')}
+            style={{ animationDelay: `${i * 0.15}s` }}
+          >
             <span className="gameover__rank">{RANK_MEDAL[i] ?? `#${i+1}`}</span>
             <span className="gameover__name">{p.name}{p.id === myId && ' (你)'}</span>
-            <span className="gameover__clan">{CLAN_LABEL[p.clan ?? ''] ?? p.clan}</span>
+            <span className="gameover__clan" style={clanOf(p.clan) ? { color: clanOf(p.clan)!.color } : undefined}>
+              {clanOf(p.clan)?.zh ?? p.clan}
+            </span>
             <span className="gameover__score">{p.influence} 影</span>
             <span className="gameover__blood">{p.blood} 血</span>
+            {p.diablerie > 0 && (
+              <span className="gameover__diablerie" title={`業報代幣 ${p.diablerie} 枚（每枚扣 1 影響力）`}>
+                👁 {p.diablerie}
+              </span>
+            )}
           </div>
         ))}
       </div>
@@ -64,8 +69,14 @@ export default function GameOverScreen({ myId, gameState }: Props) {
         ))}
       </div>
 
-      {/* 返回大廳 */}
-      <button className="btn-primary gameover__restart" onClick={() => window.location.reload()}>
+      {/* 返回大廳:清掉席位憑證,重整後回到入口而非嘗試歸位 */}
+      <button
+        className="btn-primary gameover__restart"
+        onClick={() => {
+          try { sessionStorage.removeItem('kindred_session') } catch { /* ignore */ }
+          window.location.reload()
+        }}
+      >
         返回大廳
       </button>
     </div>

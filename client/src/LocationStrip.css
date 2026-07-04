@@ -1,0 +1,61 @@
+.loc-strip {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.loc-strip__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 110px;
+  padding: 6px 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.loc-strip__item--current {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold-dim), 0 0 14px rgba(201, 162, 39, 0.25);
+}
+
+.loc-strip__item--done {
+  opacity: 0.75;
+}
+
+.loc-strip__item--empty {
+  opacity: 0.45;
+}
+
+.loc-strip__name {
+  font-weight: 700;
+  color: var(--text-h);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.loc-strip__item--current .loc-strip__name {
+  color: var(--gold);
+}
+
+.loc-strip__princes {
+  margin-left: 4px;
+  color: var(--gold);
+  font-size: 10px;
+}
+
+.loc-strip__status {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.loc-strip__item--current .loc-strip__status {
+  color: var(--blood-bright);
+  font-weight: 700;
+}

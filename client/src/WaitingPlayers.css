@@ -1,0 +1,66 @@
+.waiting-players {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.waiting-players__count {
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+.waiting-players__chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.waiting-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  color: var(--text-dim);
+}
+
+.waiting-chip--done {
+  border-color: rgba(109, 191, 109, 0.4);
+  color: var(--text);
+}
+
+.waiting-chip--done .waiting-chip__state {
+  color: #6dbf6d;
+}
+
+@keyframes waiting-chip-breathe {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+.waiting-chip--pending .waiting-chip__state {
+  animation: waiting-chip-breathe 1.4s ease-in-out infinite;
+}
+
+.waiting-chip--me {
+  border-color: var(--gold-dim);
+}
+
+.waiting-chip__clan-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--chip-clan, var(--text-dim));
+  flex-shrink: 0;
+}
+
+.waiting-chip__name {
+  white-space: nowrap;
+}

@@ -46,6 +46,35 @@
   color: var(--text-dim);
 }
 
+/* ── 確認列 ── */
+
+.handbuild__confirm-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(201,162,39,0.08);
+  border: 1px solid rgba(201,162,39,0.3);
+  border-radius: 8px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+}
+
+.handbuild__confirm-card {
+  font-size: 14px;
+  color: var(--text-dim);
+  flex: 1;
+  min-width: 120px;
+}
+
+.handbuild__confirm-card strong {
+  color: var(--gold);
+}
+
+.handbuild__confirm-btn {
+  padding: 8px 20px;
+  font-size: 14px;
+}
+
 /* ── 類型分布 ── */
 .handbuild__dist {
   display: flex;

@@ -1,23 +1,22 @@
 import type { ClanId, GameStateClient } from '@kindred/shared'
 import socket from './socket'
+import { CLANS, CLAN_ORDER } from './clans'
+import WaitingPlayers from './WaitingPlayers'
 import './ClanSelectScreen.css'
 
 const CLAN_INFO: Record<ClanId, {
-  name_zh: string
   archetype: string
   desc: string
-  color: string
+  mechanic: string
 }> = {
-  brujah:    { name_zh: '布魯哈',      archetype: '全攻快攻',   color: '#8b0000', desc: '怒火與力量。以最快速度擊倒對手，血液即是武器。' },
-  nosferatu: { name_zh: '諾斯費拉圖', archetype: '情報控制',   color: '#1a3d1a', desc: '潛伏於黑暗，掌握所有情報。讓敵人的計畫永遠失敗。' },
-  toreador:  { name_zh: '托瑞爾多',   archetype: '同盟操控',   color: '#6b2d6b', desc: '美麗是一種武器。操控人心，讓盟友為你拚命戰鬥。' },
-  tremere:   { name_zh: '翠梅爾',     archetype: '血液魔法爆發', color: '#1a1a5e', desc: '血是魔法的根源。以神秘儀式將一滴血化為毀滅之力。' },
-  malkavian: { name_zh: '馬爾卡維安', archetype: '混亂干擾',   color: '#4a2d6b', desc: '瘋狂本身就是力量。讓敵人的計畫在混沌中崩潰。' },
-  gangrel:   { name_zh: '甘格瑞爾',   archetype: '耐久消耗',   color: '#3d2200', desc: '野獸的血液流淌其中。在長期消耗戰中，永不倒下。' },
-  ventrue:   { name_zh: '梵崔',       archetype: '棋盤控制',   color: '#1a2d4a', desc: '統治是天生的權利。控制每一個地點，讓敵人無處立足。' },
+  brujah:    { archetype: '全攻快攻',     desc: '怒火與力量。以最快速度擊倒對手，血液即是武器。',           mechanic: '秘技：戰鬥牌可追加部署血液代幣，擊倒對手後竊取血液。' },
+  nosferatu: { archetype: '情報控制',     desc: '潛伏於黑暗，掌握所有情報。讓敵人的計畫永遠失敗。',         mechanic: '秘技：部署免費且不顯示地點，可中途撤退並偷取對手血液。' },
+  toreador:  { archetype: '同盟操控',     desc: '美麗是一種武器。操控人心，讓盟友為你拚命戰鬥。',           mechanic: '秘技：可結交跨氏族同盟，同盟牌分享影響力加成。' },
+  tremere:   { archetype: '血液魔法爆發', desc: '血是魔法的根源。以神秘儀式將一滴血化為毀滅之力。',         mechanic: '秘技：犧牲自身血液施放強力咒術，可竊取敵方血液或影響力。' },
+  malkavian: { archetype: '混亂干擾',     desc: '瘋狂本身就是力量。讓敵人的計畫在混沌中崩潰。',             mechanic: '秘技：可強制對手棄牌或重置部署，混亂技能在人多時效益倍增。' },
+  gangrel:   { archetype: '耐久消耗',     desc: '野獸的血液流淌其中。在長期消耗戰中，永不倒下。',           mechanic: '秘技：受傷時觸發反擊，血量越低傷害越高，耗戰克制快攻。' },
+  ventrue:   { archetype: '棋盤控制',     desc: '統治是天生的權利。控制每一個地點，讓敵人無處立足。',       mechanic: '秘技：可鎖定並獨佔地點影響力，阻止對手部署於同一地點。' },
 }
-
-const CLAN_ORDER: ClanId[] = ['brujah', 'nosferatu', 'toreador', 'tremere', 'malkavian', 'gangrel', 'ventrue']
 
 interface Props {
   myId: string
@@ -44,7 +43,7 @@ export default function ClanSelectScreen({ myId, gameState }: Props) {
     <div className="clan-select">
       <div className="clan-select__status">
         {me?.clan
-          ? <span>你選擇了 <strong>{CLAN_INFO[me.clan].name_zh}</strong>，等待其他玩家…</span>
+          ? <span>你選擇了 <strong>{CLANS[me.clan].zh}</strong>，等待其他玩家…</span>
           : <span>選擇你的氏族</span>
         }
       </div>
@@ -52,6 +51,7 @@ export default function ClanSelectScreen({ myId, gameState }: Props) {
       <div className="clan-grid">
         {CLAN_ORDER.map(clanId => {
           const info = CLAN_INFO[clanId]
+          const clan = CLANS[clanId]
           const isTaken = takenClans.has(clanId)
           const isMine = me?.clan === clanId
           const takenBy = isTaken && !isMine
@@ -62,19 +62,20 @@ export default function ClanSelectScreen({ myId, gameState }: Props) {
             <button
               key={clanId}
               className={`clan-card ${isMine ? 'clan-card--mine' : ''} ${isTaken && !isMine ? 'clan-card--taken' : ''}`}
-              style={{ '--clan-color': info.color } as React.CSSProperties}
+              style={{ '--clan-color': clan.color } as React.CSSProperties}
               onClick={() => pickClan(clanId)}
               disabled={isTaken || !!me?.clan}
             >
               <div className="clan-card__color-bar" />
               <div className="clan-card__image">
-                <img src={`/assets/${clanId}/card_00.webp`} alt={`${info.name_zh} 氏族卡牌`} />
+                <img src={`/assets/${clanId}/card_00.webp`} alt={`${clan.zh} 氏族卡牌`} />
               </div>
               <div className="clan-card__body">
-                <div className="clan-card__name">{info.name_zh}</div>
-                <div className="clan-card__name-en">{clanId.charAt(0).toUpperCase() + clanId.slice(1)}</div>
+                <div className="clan-card__name">{clan.zh}</div>
+                <div className="clan-card__name-en">{clan.en}</div>
                 <div className="clan-card__archetype">{info.archetype}</div>
                 <div className="clan-card__desc">{info.desc}</div>
+                <div className="clan-card__mechanic">{info.mechanic}</div>
                 {takenBy && (
                   <div className="clan-card__taken-by">{takenBy} 已選擇</div>
                 )}
@@ -88,9 +89,7 @@ export default function ClanSelectScreen({ myId, gameState }: Props) {
       </div>
 
       {waiting.length > 0 && (
-        <div className="clan-select__waiting">
-          等待：{waiting.map(id => gameState.players[id]?.name ?? id).join('、')}
-        </div>
+        <WaitingPlayers gameState={gameState} myId={myId} doneLabel="已選擇" />
       )}
     </div>
   )
