@@ -87,6 +87,42 @@ export const CARD_IMAGES: Record<string, string> = {
   haven: '/assets/locations/card_03.webp',
 }
 
+/** 盟友卡圖(對應表來自 card_database.json 的 image 欄位,已逐一驗證檔案存在) */
+export const ALLY_IMAGES: Record<string, string> = {
+  // ── Human ──
+  AL19: '/assets/allies/human/card_00.webp',
+  AL22: '/assets/allies/human/card_01.webp',
+  AL30: '/assets/allies/human/card_02.webp',
+  AL25: '/assets/allies/human/card_03.webp',
+  AL16: '/assets/allies/human/card_04.webp',
+  AL27: '/assets/allies/human/card_05.webp',
+  AL29: '/assets/allies/human/card_06.webp',
+  AL24: '/assets/allies/human/card_07.webp',
+  AL21: '/assets/allies/human/card_08.webp',
+  AL26: '/assets/allies/human/card_09.webp',
+  AL1G: '/assets/allies/human/card_10.webp',
+  AL20: '/assets/allies/human/card_11.webp',
+  AL28: '/assets/allies/human/card_12.webp',
+  AL17: '/assets/allies/human/card_13.webp',
+  AL23: '/assets/allies/human/card_14.webp',
+  // ── Vampire ──
+  AL04: '/assets/allies/vampire/card_00.webp',
+  AL15: '/assets/allies/vampire/card_01.webp',
+  AL11: '/assets/allies/vampire/card_02.webp',
+  AL09: '/assets/allies/vampire/card_03.webp',
+  AL07: '/assets/allies/vampire/card_04.webp',
+  AL13: '/assets/allies/vampire/card_05.webp',
+  AL03: '/assets/allies/vampire/card_06.webp',
+  AL08: '/assets/allies/vampire/card_07.webp',
+  AL05: '/assets/allies/vampire/card_08.webp',
+  AL06: '/assets/allies/vampire/card_09.webp',
+  AL14: '/assets/allies/vampire/card_10.webp',
+  AL02: '/assets/allies/vampire/card_11.webp',
+  AL01: '/assets/allies/vampire/card_12.webp',
+  AL12: '/assets/allies/vampire/card_13.webp',
+  AL10: '/assets/allies/vampire/card_14.webp',
+}
+
 export function cardImageSrc(cardId: string | null | undefined): string | null {
   if (!cardId) return null
   return CARD_IMAGES[cardId] ?? null
@@ -94,4 +130,10 @@ export function cardImageSrc(cardId: string | null | undefined): string | null {
 
 export function locationImageSrc(locationId: string): string | null {
   return CARD_IMAGES[locationId] ?? null
+}
+
+/** 盟友卡圖;受害者牌(v1-v12 Kine)無實體卡圖,回傳 null 由 UI 純文字呈現 */
+export function allyImageSrc(allyId: string | null | undefined): string | null {
+  if (!allyId) return null
+  return ALLY_IMAGES[allyId] ?? null
 }

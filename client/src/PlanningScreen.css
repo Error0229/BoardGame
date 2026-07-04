@@ -847,3 +847,42 @@
   background: var(--blood) !important;
   border-color: var(--blood-bright) !important;
 }
+
+/* ── 盟友卡圖(實體卡為橫式) ── */
+
+.loc-card__ally-thumb {
+  width: 34px;
+  height: 24px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.loc-card__ally-full {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 6px;
+  margin: 4px 0;
+}
+
+.ally-tile__img {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 6px 6px 0 0;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.ally-tile--drained .ally-tile__img {
+  filter: grayscale(1) brightness(0.6);
+}
+
+.drain-confirm__img {
+  width: 220px;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 8px;
+  align-self: center;
+}
