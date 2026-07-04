@@ -5,6 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { GameEngine } from '../gameEngine';
+import { ALLY_POOL } from '../cardData';
 import { makePlayer, makeSlot } from './helpers';
 
 describe('addPlayer / removePlayer', () => {
@@ -112,6 +113,26 @@ describe('allClansSelected', () => {
 });
 
 describe('drainAlly', () => {
+  it('汲取帶 drainInfluence 的同盟：血液與影響力都獲得（卡面骷髏區塊的安卡數值）', () => {
+    const engine = new GameEngine('TEST');
+    engine.state.phase = 'PLANNING';
+    engine.state.players['p1'] = makePlayer('p1', {
+      blood: 5,
+      influence: 2,
+      alliance: [{ id: 'a1', name: 'Betty Fuller', type: 'human', drainBlood: 3, influence: 3, feedBlood: 1, drainInfluence: 1, drained: false }],
+    });
+    engine.drainAlly('p1', 'a1');
+    expect(engine.state.players['p1'].blood).toBe(8);
+    expect(engine.state.players['p1'].influence).toBe(3); // 2 + 1
+  });
+
+  it('ALLY_POOL 資料：汲取影響力與卡面一致（抽查 AL19/AL16/AL22）', () => {
+    const byId = Object.fromEntries(ALLY_POOL.map(a => [a.id, a]));
+    expect(byId['AL19'].drainInfluence).toBe(1); // Betty Fuller 卡面:3💧+1☥
+    expect(byId['AL16'].drainInfluence).toBe(3); // Bobby White
+    expect(byId['AL22'].drainInfluence).toBe(0); // Douglas Richardson 卡面:8💧+0☥
+  });
+
   it('PLANNING 階段：成功汲取人類同盟，獲得血液', () => {
     const engine = new GameEngine('TEST');
     engine.state.phase = 'PLANNING';

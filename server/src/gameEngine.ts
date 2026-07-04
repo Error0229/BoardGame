@@ -236,18 +236,20 @@ export class GameEngine {
 
     ally.drained = true;
     p.blood += ally.drainBlood;
+    p.influence += ally.drainInfluence;
+    const drainGain = `+${ally.drainBlood}💧` + (ally.drainInfluence > 0 ? ` +${ally.drainInfluence}影` : '');
 
     // 汲取吸血鬼盟友需承受弒親代幣
     if (ally.type === 'vampire') {
       p.diablerie += 1;
-      this.log(`${p.name} 汲取 ${ally.name}（吸血鬼）→ +${ally.drainBlood}💧，承受 1 弒親代幣（共 ${p.diablerie}）`);
+      this.log(`${p.name} 汲取 ${ally.name}（吸血鬼）→ ${drainGain}，承受 1 弒親代幣（共 ${p.diablerie}）`);
       if (p.diablerie >= 3) {
         p.allianceCount = p.alliance.length;
         this.eliminatePlayer(p.id);
         return true;
       }
     } else {
-      this.log(`${p.name} 汲取 ${ally.name} → +${ally.drainBlood}💧`);
+      this.log(`${p.name} 汲取 ${ally.name} → ${drainGain}`);
     }
 
     p.allianceCount = p.alliance.length;
@@ -1477,6 +1479,7 @@ export class GameEngine {
       const forceDrained = shuffled[0];
       forceDrained.drained = true;       // 標記為已汲取，防止再次汲取
       player.blood += forceDrained.drainBlood;
+      player.influence += forceDrained.drainInfluence;
       if (forceDrained.type === 'vampire') {
         player.diablerie++;
         this.log(`${player.name} 強制汲取了 ${forceDrained.name}（弒親！弒親代幣: ${player.diablerie}）`);
