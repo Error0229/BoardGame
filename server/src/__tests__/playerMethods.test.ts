@@ -113,7 +113,7 @@ describe('allClansSelected', () => {
 });
 
 describe('drainAlly', () => {
-  it('汲取帶 drainInfluence 的同盟：血液與影響力都獲得（卡面骷髏區塊的安卡數值）', () => {
+  it('汲取不立即改變影響力；終局計分改用翻面殘值（drainInfluence）', () => {
     const engine = new GameEngine('TEST');
     engine.state.phase = 'PLANNING';
     engine.state.players['p1'] = makePlayer('p1', {
@@ -123,14 +123,49 @@ describe('drainAlly', () => {
     });
     engine.drainAlly('p1', 'a1');
     expect(engine.state.players['p1'].blood).toBe(8);
-    expect(engine.state.players['p1'].influence).toBe(3); // 2 + 1
+    expect(engine.state.players['p1'].influence).toBe(2); // 汲取當下不變
+    // 終局:2(代幣)+ 1(翻面殘值)
+    engine.endGame();
+    expect(engine.state.players['p1'].influence).toBe(3);
   });
 
-  it('ALLY_POOL 資料：汲取影響力與卡面一致（抽查 AL19/AL16/AL22）', () => {
+  it('未汲取的同盟終局計全額影響力', () => {
+    const engine = new GameEngine('TEST');
+    engine.state.players['p1'] = makePlayer('p1', {
+      influence: 2,
+      alliance: [{ id: 'a1', name: 'Betty Fuller', type: 'human', drainBlood: 3, influence: 3, feedBlood: 1, drainInfluence: 1, drained: false }],
+    });
+    engine.endGame();
+    expect(engine.state.players['p1'].influence).toBe(5); // 2 + 3
+  });
+
+  it('ALLY_POOL 資料與實體卡面一致（掃描逐張驗證的抽樣）', () => {
     const byId = Object.fromEntries(ALLY_POOL.map(a => [a.id, a]));
-    expect(byId['AL19'].drainInfluence).toBe(1); // Betty Fuller 卡面:3💧+1☥
-    expect(byId['AL16'].drainInfluence).toBe(3); // Bobby White
-    expect(byId['AL22'].drainInfluence).toBe(0); // Douglas Richardson 卡面:8💧+0☥
+    // Betty Fuller 卡面:骷髏區 3💧+1☥、中間 3☥、下方每回合 1
+    expect(byId['AL19']).toMatchObject({ influence: 3, feedBlood: 1, drainBlood: 3, drainInfluence: 1 });
+    // Elena Cortez 卡面:骷髏區 0💧+3☥、中間 3☥、下方 0
+    expect(byId['AL25']).toMatchObject({ influence: 3, feedBlood: 0, drainBlood: 0, drainInfluence: 3 });
+    // Miguel Chandler 卡面:骷髏區 3💧+2☥、中間 3☥、下方 0
+    expect(byId['AL30']).toMatchObject({ influence: 3, feedBlood: 0, drainBlood: 3, drainInfluence: 2 });
+    // Talley 卡面:骷髏區 3💧+0☥、中間 2☥、下方 -1(維持成本)
+    expect(byId['AL12']).toMatchObject({ influence: 2, feedBlood: -1, drainBlood: 3, drainInfluence: 0 });
+    // Douglas Richardson 卡面:骷髏區 8💧+0☥、中間 2☥、下方 0
+    expect(byId['AL22']).toMatchObject({ influence: 2, feedBlood: 0, drainBlood: 8, drainInfluence: 0 });
+  });
+
+  it('已汲取(翻面)的同盟不再餵食;負餵食為維持成本且血量最低 0', () => {
+    const engine = new GameEngine('TEST');
+    engine.state.players['p1'] = makePlayer('p1', {
+      blood: 1,
+      alliance: [
+        { id: 'a1', name: 'Drained', type: 'human', drainBlood: 0, influence: 1, feedBlood: 5, drainInfluence: 0, drained: true },
+        { id: 'a2', name: 'Talley', type: 'vampire', drainBlood: 3, influence: 2, feedBlood: -1, drainInfluence: 0, drained: false },
+      ],
+    });
+    engine.state.players['p1'].clan = 'brujah';
+    engine.startRound();
+    // 已汲取的 +5 不算,只有 -1 維持成本:1 - 1 = 0
+    expect(engine.state.players['p1'].blood).toBe(0);
   });
 
   it('PLANNING 階段：成功汲取人類同盟，獲得血液', () => {

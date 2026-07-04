@@ -236,8 +236,8 @@ export class GameEngine {
 
     ally.drained = true;
     p.blood += ally.drainBlood;
-    p.influence += ally.drainInfluence;
-    const drainGain = `+${ally.drainBlood}💧` + (ally.drainInfluence > 0 ? ` +${ally.drainInfluence}影` : '');
+    // 汲取不立即改變影響力:卡翻面後終局計分改用殘值 drainInfluence(endGame 處理)
+    const drainGain = `+${ally.drainBlood}💧（終局影響力 ${ally.influence}→${ally.drainInfluence}）`;
 
     // 汲取吸血鬼盟友需承受弒親代幣
     if (ally.type === 'vampire') {
@@ -296,10 +296,11 @@ export class GameEngine {
       p.isReady = false;
       p.deploymentsLeft = deployLimit;
 
-      // Feed phase: gain blood from alliance (cap at 13)
-      const feedGain = p.alliance.reduce((sum, a) => sum + a.feedBlood, 0);
-      p.blood = Math.min(13, p.blood + feedGain);
+      // Feed phase: gain blood from alliance (cap at 13);已汲取(翻面)的卡不餵食
+      const feedGain = p.alliance.filter(a => !a.drained).reduce((sum, a) => sum + a.feedBlood, 0);
+      p.blood = Math.max(0, Math.min(13, p.blood + feedGain));
       if (feedGain > 0) this.log(`${p.name} 從同盟獲得 +${feedGain} 血液`);
+      else if (feedGain < 0) this.log(`${p.name} 支付同盟維持成本 ${feedGain} 血液`);
 
       // Feed phase: reset drained allies (回合結束後可再次使用)
       // NOTE: 根據規則，汲取應該是一次性的行為，汲取後的牌持續到遊戲結束
@@ -1477,9 +1478,8 @@ export class GameEngine {
     if (allyPool.length > 0) {
       const shuffled = shuffle([...allyPool]);
       const forceDrained = shuffled[0];
-      forceDrained.drained = true;       // 標記為已汲取，防止再次汲取
+      forceDrained.drained = true;       // 標記為已汲取，防止再次汲取；終局改計殘值影響力
       player.blood += forceDrained.drainBlood;
-      player.influence += forceDrained.drainInfluence;
       if (forceDrained.type === 'vampire') {
         player.diablerie++;
         this.log(`${player.name} 強制汲取了 ${forceDrained.name}（弒親！弒親代幣: ${player.diablerie}）`);

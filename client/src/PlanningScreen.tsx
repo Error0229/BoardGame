@@ -138,7 +138,7 @@ export default function PlanningScreen({ myId, gameState }: Props) {
   }
 
   function requestDrain(ally: AllyCard) {
-    // 汲取不可逆(同盟移除、影響力消失),一律先確認
+    // 汲取不可逆(卡翻面、終局影響力降為殘值),一律先確認
     setDrainConfirm(ally)
   }
 
@@ -267,15 +267,12 @@ export default function PlanningScreen({ myId, gameState }: Props) {
                         <img className="loc-card__ally-full" src={allyImageSrc(ally.id)!} alt={ally.name} />
                       )}
                       <div className="loc-card__ally-stats">
-                        <span>🏛 影響力 +{ally.influence}（持有期間）</span>
-                        {ally.feedBlood > 0 && <span>🩸 每回合 +{ally.feedBlood} 血</span>}
-                        {(ally.drainBlood > 0 || ally.drainInfluence > 0) && (
-                          <span>
-                            ⚡ 汲取得
-                            {ally.drainBlood > 0 && ` +${ally.drainBlood} 血`}
-                            {ally.drainInfluence > 0 && ` +${ally.drainInfluence} 影響力`}
-                            （失去此牌）
-                          </span>
+                        <span>🏛 影響力 +{ally.influence}（終局計分）</span>
+                        {ally.feedBlood !== 0 && (
+                          <span>🩸 每回合 {ally.feedBlood > 0 ? '+' : ''}{ally.feedBlood} 血{ally.feedBlood < 0 && '（維持成本）'}</span>
+                        )}
+                        {ally.drainBlood > 0 && (
+                          <span>⚡ 汲取：+{ally.drainBlood} 血（影響力 {ally.influence}→{ally.drainInfluence}）</span>
                         )}
                       </div>
                       {ally.effect_zh && <div className="loc-card__ally-effect">{ally.effect_zh}</div>}
@@ -355,15 +352,18 @@ export default function PlanningScreen({ myId, gameState }: Props) {
                 <div className="ally-tile__type">{ally.type === 'vampire' ? '吸血鬼' : '人類'}</div>
                 <div className="ally-tile__name">{ally.name}</div>
                 <div className="ally-tile__stats">
-                  <span>🏛 影響力 +{ally.influence}（持有期間）</span>
-                  {ally.feedBlood > 0 && <span>🩸 每回合 +{ally.feedBlood} 血</span>}
-                  {(ally.drainBlood > 0 || ally.drainInfluence > 0) && (
-                    <span>
-                      ⚡ 汲取得
-                      {ally.drainBlood > 0 && ` +${ally.drainBlood} 血`}
-                      {ally.drainInfluence > 0 && ` +${ally.drainInfluence} 影響力`}
-                      （失去此牌）
-                    </span>
+                  {ally.drained ? (
+                    <span>🏛 影響力 +{ally.drainInfluence}（已汲取翻面，終局計分）</span>
+                  ) : (
+                    <>
+                      <span>🏛 影響力 +{ally.influence}（終局計分）</span>
+                      {ally.feedBlood !== 0 && (
+                        <span>🩸 每回合 {ally.feedBlood > 0 ? '+' : ''}{ally.feedBlood} 血{ally.feedBlood < 0 && '（維持成本）'}</span>
+                      )}
+                      {ally.drainBlood > 0 && (
+                        <span>⚡ 汲取：+{ally.drainBlood} 血（影響力 {ally.influence}→{ally.drainInfluence}）</span>
+                      )}
+                    </>
                   )}
                 </div>
                 {ally.effect_zh && <div className="ally-tile__effect">{ally.effect_zh}</div>}
@@ -442,8 +442,11 @@ export default function PlanningScreen({ myId, gameState }: Props) {
               <div className="drain-confirm__body">
                 <div className="drain-confirm__row">
                   汲取獲得：
-                  {drainConfirm.drainBlood > 0 && <span className="drain-confirm__gain drain-confirm__gain--blood">+{drainConfirm.drainBlood} 血</span>}
-                  {drainConfirm.drainInfluence > 0 && <span className="drain-confirm__gain drain-confirm__gain--inf">+{drainConfirm.drainInfluence} 影響力</span>}
+                  <span className="drain-confirm__gain drain-confirm__gain--blood">+{drainConfirm.drainBlood} 血</span>
+                </div>
+                <div className="drain-confirm__row">
+                  終局影響力：
+                  <span className="drain-confirm__gain drain-confirm__gain--inf">{drainConfirm.influence} → {drainConfirm.drainInfluence}</span>
                 </div>
                 {isVampire && (
                   <div className={`drain-confirm__penalty ${willEliminate ? 'drain-confirm__penalty--fatal' : ''}`}>
@@ -456,7 +459,7 @@ export default function PlanningScreen({ myId, gameState }: Props) {
                   </div>
                 )}
                 <div className="drain-confirm__note">
-                  汲取後此牌從同盟移除，其影響力（{drainConfirm.influence}）也一併消失，無法復原。
+                  汲取後此牌翻面，終局計分時只算殘餘影響力，無法復原。
                 </div>
               </div>
               <div className="drain-confirm__actions">
