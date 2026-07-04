@@ -19,9 +19,27 @@ export default function LobbyScreen({ myId, gameState, onError }: Props) {
 
   function copyCode() {
     if (!gameState) return
-    navigator.clipboard.writeText(gameState.roomCode)
+    const code = gameState.roomCode
+    // navigator.clipboard 只在 https / localhost 存在;
+    // 朋友用 VPN IP 的 http:// 開頁面時是 undefined,要用舊 API fallback
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(code).catch(() => fallbackCopy(code))
+    } else {
+      fallbackCopy(code)
+    }
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  function fallbackCopy(text: string) {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    try { document.execCommand('copy') } catch { /* 複製失敗就算了,房號本來就顯示在畫面上 */ }
+    document.body.removeChild(ta)
   }
 
   const inRoom = gameState !== null
