@@ -117,20 +117,49 @@ export interface PlayerPrivate extends PlayerPublic {
 
 // ─── 結算結果 ────────────────────────────────
 
+/** 單一效果事件，攜帶來源卡與數值變化，供 UI 顯示因果關係 */
+export interface StepEvent {
+  text: string;
+  sourceCardId?: string;
+  sourcePlayerName?: string;
+  targetPlayerName?: string;
+  delta?: {
+    blood?: number;
+    influence?: number;
+    power?: number;
+  };
+}
+
 export interface ConflictResult {
   locationId: string;
   winner: string | null;
   second: string | null;
   scores: Record<string, number>;
   influenceGained: Record<string, number>;
-  bloodEvents: string[];
+  bloodEvents: StepEvent[];
   /** 分步驟的效果紀錄，供 UI 逐步顯示用 */
   stepEvents: {
-    prepare: string[];
-    conflict: string[];
-    aftermath: string[];
+    prepare: StepEvent[];
+    conflict: StepEvent[];
+    aftermath: StepEvent[];
   };
   tie: boolean;
+}
+
+export interface ActiveEffect {
+  locationId: string;
+  step: 'reveal' | 'prepare' | 'conflict' | 'aftermath' | 'complete';
+  eventIndex: number;
+  eventCount: number;
+  sourceCardId?: string;
+  sourcePlayerName?: string;
+  targetPlayerName?: string;
+  text: string;
+  delta?: {
+    blood?: number;
+    influence?: number;
+    power?: number;
+  };
 }
 
 // ─── Server 完整狀態 ──────────────────────────
@@ -156,6 +185,7 @@ export interface GameStateFull {
   log: string[];
   pendingChoices: PendingChoice[];
   resolvedChoices: Record<string, string>;
+  activeEffect: ActiveEffect | null;
   // VE07 先發制人：key = playerId，value = 免疫的 cardId set（當回合有效）
   forestallImmune: Record<string, Set<string>>;
 }
@@ -184,6 +214,13 @@ export interface GameStateClient {
   winner: string | null;
   log: string[];
   myPendingChoice: PendingChoice | null;
+  activeEffect: ActiveEffect | null;
+  /** 房間內是否有任何玩家仍有待回應的選擇（供其他玩家顯示等待提示用） */
+  hasPendingChoices: boolean;
+  /** 公開的「誰正在做卡牌選擇」（只含是誰、為哪張牌，不含選項內容） */
+  activeChoosers: Array<{ playerId: string; cardId: string; locationId: string }>;
+  /** 結算演出加速投票（playerId 列表）；全員投票即跳過剩餘演出 */
+  skipVotes: string[];
 }
 
 // ─── Socket 事件 ──────────────────────────────
@@ -201,6 +238,10 @@ export interface ClientToServer {
   respondChoice: (payload: { choiceId: string; option: string }) => void;
   watchRoom: (code: string) => void;                 // 觀戰：加入房間但不參與
   chat: (msg: string) => void;
+  /** 斷線重連：以 session 憑證重新綁定原本的席位 */
+  rejoinRoom: (payload: { roomCode: string; playerId: string; token: string }) => void;
+  /** 結算演出加速投票：全員投票後立即播完剩餘演出 */
+  skipEffects: () => void;
 }
 
 export interface ServerToClient {
@@ -209,4 +250,8 @@ export interface ServerToClient {
   notification: (msg: string) => void;
   chat: (payload: { name: string; msg: string }) => void;
   error: (msg: string) => void;
+  /** 入房 / 重連成功時發放的席位憑證，client 存 sessionStorage 供重整後歸位 */
+  session: (payload: { playerId: string; roomCode: string; token: string }) => void;
+  /** 重連失敗（房間不存在 / 席位已被移除 / 憑證錯誤） */
+  rejoinFailed: () => void;
 }
