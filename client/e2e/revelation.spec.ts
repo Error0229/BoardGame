@@ -19,12 +19,12 @@ test.describe('RevelationScreen — confirm and navigation', () => {
   })
 
   test('ROUND_END with round 0 shows 繼續下一回合', async ({ page }) => {
-    await pushState(page, roundEndState(0))
+    await pushState(page, roundEndState(1))
     await expect(page.locator('.revelation__confirm-btn')).toContainText('繼續下一回合')
   })
 
   test('ROUND_END with round 2 shows 查看最終結果', async ({ page }) => {
-    await pushState(page, roundEndState(2))
+    await pushState(page, roundEndState(3))
     await expect(page.locator('.revelation__confirm-btn')).toContainText('查看最終結果')
   })
 

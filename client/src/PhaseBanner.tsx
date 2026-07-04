@@ -43,7 +43,7 @@ export default function PhaseBanner({ phase, round }: Props) {
   return (
     <div className="phase-banner" onClick={() => setShow(null)}>
       <div className="phase-banner__inner">
-        <div className="phase-banner__round">第 {show.round + 1} 回合</div>
+        {show.round >= 1 && <div className="phase-banner__round">第 {show.round} 回合</div>}
         <div className="phase-banner__rule phase-banner__rule--top" />
         <div className="phase-banner__title">{show.title}</div>
         <div className="phase-banner__rule phase-banner__rule--bottom" />

@@ -71,7 +71,7 @@ export default function HandBuildScreen({ myId, gameState }: Props) {
 
   return (
     <div className="handbuild">
-      <div className="handbuild__round">第 {gameState.round + 1} 回合 — 手牌建造</div>
+      <div className="handbuild__round">第 {gameState.round} 回合 — 手牌建造</div>
 
       {/* Draft section */}
       <section className="handbuild__section">

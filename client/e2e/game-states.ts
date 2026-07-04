@@ -16,7 +16,7 @@ const KINE = { id: 'kine', name: 'Kine', type: 'human', influence: 1, feedBlood:
 
 const BASE = {
   roomCode: 'TEST',
-  round: 0,
+  round: 1,
   ambitionHolder: MY_ID,
   playerOrder: [MY_ID, 'test-p2'],
   currentTurnPlayerId: MY_ID,
@@ -139,7 +139,7 @@ export function revelationState(opts: {
   waitingForSelf?: boolean
   round?: number
 } = {}): S {
-  const { pendingChoice = null, waitingForSelf = true, round = 0 } = opts
+  const { pendingChoice = null, waitingForSelf = true, round = 1 } = opts
   return {
     ...BASE,
     phase: 'REVELATION',
@@ -164,7 +164,7 @@ export function revelationState(opts: {
   }
 }
 
-export function roundEndState(round = 0): S {
+export function roundEndState(round = 1): S {
   return { ...revelationState({ round }), phase: 'ROUND_END', waitingFor: [MY_ID] }
 }
 

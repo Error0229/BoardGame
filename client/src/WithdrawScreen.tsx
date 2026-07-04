@@ -138,7 +138,7 @@ export default function WithdrawScreen({ myId, gameState }: Props) {
           <span className="wd-loc__name">{currentLoc.name}</span>
           {currentLoc.isPrinces && <span className="wd-loc__princes">王子之地</span>}
           <span className="wd-loc__influence">
-            {currentLoc.influence[gameState.round]?.[0] ?? '?'} / {currentLoc.influence[gameState.round]?.[1] ?? '?'} 影
+            {currentLoc.influence[gameState.round - 1]?.[0] ?? '?'} / {currentLoc.influence[gameState.round - 1]?.[1] ?? '?'} 影
           </span>
         </div>
 

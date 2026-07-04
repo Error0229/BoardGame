@@ -176,7 +176,7 @@ export default function App() {
         <div className="app-header__right">
           {gameState && !['LOBBY', 'GAME_OVER'].includes(phase ?? '') && (
             <span className="app-header__round">
-              第 {gameState.round + 1} 回合
+              第 {gameState.round} 回合
               {phase && PHASE_INFO[phase] && (
                 <span className="app-header__phase"> · {PHASE_INFO[phase]!.title}</span>
               )}

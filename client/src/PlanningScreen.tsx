@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { CardDef, GameStateClient, AllyCard, ClanId } from '@kindred/shared'
 import socket from './socket'
 import CardImage from './CardImage'
-import { locationImageSrc } from './cardImages'
+import { locationImageSrc, allyImageSrc } from './cardImages'
 import { CARD_DEFS, TYPE_LABEL_ZH } from './cardDefs'
 import { clanOf } from './clans'
 import WaitingPlayers from './WaitingPlayers'
@@ -234,9 +234,9 @@ export default function PlanningScreen({ myId, gameState }: Props) {
               </div>
 
               <div className="loc-card__influence">
-                <span className="loc-card__inf-val">🏆 {loc.influence[gameState.round]?.[0] ?? '?'}</span>
+                <span className="loc-card__inf-val">🏆 {loc.influence[gameState.round - 1]?.[0] ?? '?'}</span>
                 <span className="loc-card__inf-sep">/</span>
-                <span className="loc-card__inf-val loc-card__inf-val--2nd">🥈 {loc.influence[gameState.round]?.[1] ?? '?'}</span>
+                <span className="loc-card__inf-val loc-card__inf-val--2nd">🥈 {loc.influence[gameState.round - 1]?.[1] ?? '?'}</span>
                 <span className="loc-card__inf-label">影響力</span>
               </div>
 
@@ -254,12 +254,18 @@ export default function PlanningScreen({ myId, gameState }: Props) {
                   }}
                 >
                   <div className="loc-card__ally-header">
+                    {allyImageSrc(ally.id) && (
+                      <img className="loc-card__ally-thumb" src={allyImageSrc(ally.id)!} alt={ally.name} />
+                    )}
                     <span className="loc-card__ally-type">{ally.type === 'vampire' ? '吸血鬼' : '人類'}</span>
                     <span className="loc-card__ally-name">{ally.name}</span>
                     <span className="loc-card__ally-chevron">{expandedAllies.has(loc.id) ? '▲' : '▼'}</span>
                   </div>
                   {expandedAllies.has(loc.id) && (
                     <>
+                      {allyImageSrc(ally.id) && (
+                        <img className="loc-card__ally-full" src={allyImageSrc(ally.id)!} alt={ally.name} />
+                      )}
                       <div className="loc-card__ally-stats">
                         <span title="影響力">🏛 {ally.influence}</span>
                         <span title="每回合獲得血液">🩸 +{ally.feedBlood}</span>
@@ -337,6 +343,9 @@ export default function PlanningScreen({ myId, gameState }: Props) {
           <div className="planning__hand">
             {alliance.map(ally => (
               <div key={ally.id} className={`ally-tile ${ally.drained ? 'ally-tile--drained' : ''}`}>
+                {allyImageSrc(ally.id) && (
+                  <img className="ally-tile__img" src={allyImageSrc(ally.id)!} alt={ally.name} />
+                )}
                 <div className="ally-tile__type">{ally.type === 'vampire' ? '吸血鬼' : '人類'}</div>
                 <div className="ally-tile__name">{ally.name}</div>
                 <div className="ally-tile__stats">
@@ -412,6 +421,9 @@ export default function PlanningScreen({ myId, gameState }: Props) {
               <div className="drain-confirm__title">
                 {isVampire ? '⚠ 汲取吸血鬼' : '汲取同盟'}
               </div>
+              {allyImageSrc(drainConfirm.id) && (
+                <img className="drain-confirm__img" src={allyImageSrc(drainConfirm.id)!} alt={drainConfirm.name} />
+              )}
               <div className="drain-confirm__card">{drainConfirm.name}</div>
               <div className="drain-confirm__body">
                 <div className="drain-confirm__row">

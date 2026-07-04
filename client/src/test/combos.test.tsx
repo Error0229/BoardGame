@@ -448,9 +448,9 @@ describe('Revelation – 全步驟說明由 server activeEffect 驅動', () => {
 
 describe('Revelation ROUND_END – 全 3 回合確認按鈕文字', () => {
   const cases = [
-    { round: 0, expected: '繼續下一回合' },
     { round: 1, expected: '繼續下一回合' },
-    { round: 2, expected: '查看最終結果' },
+    { round: 2, expected: '繼續下一回合' },
+    { round: 3, expected: '查看最終結果' },
   ] as const
 
   for (const { round, expected } of cases) {
@@ -535,7 +535,7 @@ describe('Revelation – 複數地點結果顯示', () => {
         myId="p1"
         gameState={gameState({
           phase: 'ROUND_END',
-          round: 1,
+          round: 2,
           waitingFor: ['p1'],
           lastConflictResults: [
             makeResult({ locationId: 'rack' }),

@@ -759,22 +759,7 @@ describe('RevelationScreen – confirmation and choices', () => {
     })
   })
 
-  it('ROUND_END 非最終回合（round=0）確認按鈕顯示「繼續下一回合」', () => {
-    const { container } = render(
-      <RevelationScreen
-        myId="p1"
-        gameState={gameState({
-          phase: 'ROUND_END',
-          round: 0,
-          waitingFor: ['p1'],
-          lastConflictResults: [makeResult()],
-        })}
-      />
-    )
-    expect(container.querySelector('.revelation__confirm-btn')!.textContent).toBe('繼續下一回合')
-  })
-
-  it('ROUND_END 第二非最終回合（round=1）確認按鈕顯示「繼續下一回合」', () => {
+  it('ROUND_END 非最終回合（round=1）確認按鈕顯示「繼續下一回合」', () => {
     const { container } = render(
       <RevelationScreen
         myId="p1"
@@ -789,13 +774,28 @@ describe('RevelationScreen – confirmation and choices', () => {
     expect(container.querySelector('.revelation__confirm-btn')!.textContent).toBe('繼續下一回合')
   })
 
-  it('ROUND_END 最終回合（round=2）確認按鈕顯示「查看最終結果」', () => {
+  it('ROUND_END 第二非最終回合（round=2）確認按鈕顯示「繼續下一回合」', () => {
     const { container } = render(
       <RevelationScreen
         myId="p1"
         gameState={gameState({
           phase: 'ROUND_END',
           round: 2,
+          waitingFor: ['p1'],
+          lastConflictResults: [makeResult()],
+        })}
+      />
+    )
+    expect(container.querySelector('.revelation__confirm-btn')!.textContent).toBe('繼續下一回合')
+  })
+
+  it('ROUND_END 最終回合（round=3）確認按鈕顯示「查看最終結果」', () => {
+    const { container } = render(
+      <RevelationScreen
+        myId="p1"
+        gameState={gameState({
+          phase: 'ROUND_END',
+          round: 3,
           waitingFor: ['p1'],
           lastConflictResults: [makeResult()],
         })}

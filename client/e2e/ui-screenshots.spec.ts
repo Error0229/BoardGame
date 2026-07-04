@@ -95,7 +95,7 @@ test('revelation choosers panel', async ({ page }) => {
 
 test('round end summary', async ({ page }) => {
   await setup(page)
-  const base = revelationState({ round: 0 }) as Record<string, any>
+  const base = revelationState({ round: 1 }) as Record<string, any>
   await pushState(page, {
     ...base,
     phase: 'ROUND_END',

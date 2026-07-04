@@ -434,7 +434,7 @@ function BattlefieldOverview({ gameState, myId, highlightLocId, onSlotClick }: {
               <span className="bf-loc__name">{loc.name}</span>
               {loc.isPrinces && <span className="bf-loc__princes">王子之地</span>}
               <span className="bf-loc__inf">
-                {loc.influence[gameState.round]?.[0] ?? '?'} / {loc.influence[gameState.round]?.[1] ?? '?'} 影
+                {loc.influence[gameState.round - 1]?.[0] ?? '?'} / {loc.influence[gameState.round - 1]?.[1] ?? '?'} 影
               </span>
             </div>
             <div className="bf-loc__slots">
@@ -606,12 +606,12 @@ export default function RevelationScreen({ myId, gameState }: Props) {
       <div className="revelation__header">
         <div className="revelation__header-top">
           <div className="revelation__title">
-            {isReveal ? '結算階段' : `第 ${gameState.round + 1} 回合結束`}
+            {isReveal ? '結算階段' : `第 ${gameState.round} 回合結束`}
           </div>
           <div className="revelation__subtitle">
             {isReveal
-              ? `第 ${gameState.round + 1} 回合`
-              : gameState.round + 1 < 3 ? `第 ${gameState.round + 2} 回合即將開始` : '最終回合'}
+              ? `第 ${gameState.round} 回合`
+              : gameState.round < 3 ? `第 ${gameState.round + 1} 回合即將開始` : '最終回合'}
           </div>
 
           {/* 當前地點標籤（多地點時顯示） */}
@@ -757,7 +757,7 @@ export default function RevelationScreen({ myId, gameState }: Props) {
             {!iHaveConfirmed ? (
               <button className="btn-primary revelation__confirm-btn" onClick={confirm}>
                 {isRoundEnd
-                  ? (gameState.round + 1 >= 3 ? '查看最終結果' : '繼續下一回合')
+                  ? (gameState.round >= 3 ? '查看最終結果' : '繼續下一回合')
                   : '確認，繼續'}
               </button>
             ) : (

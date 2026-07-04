@@ -67,7 +67,7 @@ export function gameState(overrides: Partial<GameStateClient> = {}): GameStateCl
   return {
     roomCode: 'TEST',
     phase: 'LOBBY',
-    round: 0,
+    round: 1,
     ambitionHolder: 'p1',
     playerOrder: ['p1', 'p2'],
     currentTurnPlayerId: 'p1',

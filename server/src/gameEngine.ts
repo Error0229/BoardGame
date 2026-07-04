@@ -166,6 +166,8 @@ export class GameEngine {
 
   startHandBuild(): void {
     const s = this.state;
+    // 回合數在手牌建造開始時遞增:建造與其後的規劃/結算屬同一回合(1-based)
+    s.round += 1;
     s.phase = 'HAND_BUILD';
     const is3p = Object.keys(s.players).length === 3;
 
@@ -173,14 +175,14 @@ export class GameEngine {
       p.isReady = false;
       p.handBuildDraft = [];
 
-      if (s.round === 0) {
+      if (s.round === 1) {
         // 第一輪：初始化牌組，起始手牌固定（Hunt + Ready）
         p.deck = shuffle([...CLAN_DECKS[p.clan!]]);
         p.hand = [...CLAN_STARTERS[p.clan!]];
       }
 
       // 3 人第 1 輪：抽 3 選 2；其他：抽 2 選 1
-      const drawCount = (is3p && s.round === 0) ? 3 : 2;
+      const drawCount = (is3p && s.round === 1) ? 3 : 2;
       const { drawn, rest } = drawCards(p.deck, drawCount);
       p.handBuildDraft = drawn;
       p.deck = rest;
@@ -200,7 +202,7 @@ export class GameEngine {
     if (!p || p.isReady) return false;
 
     const is3p = Object.keys(s.players).length === 3;
-    const keepCount = (is3p && s.round === 0) ? 2 : 1;
+    const keepCount = (is3p && s.round === 1) ? 2 : 1;
 
     const idx = p.handBuildDraft.findIndex(c => c.id === cardId);
     if (idx === -1) return false;
@@ -209,7 +211,7 @@ export class GameEngine {
     p.hand.push(kept);
 
     // 剩餘的牌放回牌組底部
-    if (p.hand.filter(c => !p.handBuildDraft.includes(c)).length >= keepCount + (s.round === 0 ? 2 : 0)) {
+    if (p.hand.filter(c => !p.handBuildDraft.includes(c)).length >= keepCount + (s.round === 1 ? 2 : 0)) {
       // 已選夠：把 draft 剩餘放回底部
       p.deck = [...p.deck, ...p.handBuildDraft];
       p.handBuildDraft = [];
@@ -254,7 +256,6 @@ export class GameEngine {
 
   startRound(): void {
     const s = this.state;
-    s.round += 1;
     s.phase = 'PLANNING';
     s.lastConflictResults = [];
     s.activeEffect = null;
