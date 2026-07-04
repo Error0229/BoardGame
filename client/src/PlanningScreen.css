@@ -243,10 +243,10 @@
 
 .loc-card__ally-stats {
   display: flex;
-  gap: 7px;
+  flex-direction: column;
+  gap: 2px;
   font-size: 10px;
   color: var(--text);
-  flex-wrap: wrap;
 }
 
 .loc-card__ally-effect {
@@ -532,9 +532,11 @@
 }
 
 .ally-tile__stats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   font-size: 11px;
   color: var(--text);
-  line-height: 1.6;
 }
 
 .ally-tile__drain-btn {

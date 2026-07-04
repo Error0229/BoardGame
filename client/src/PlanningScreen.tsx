@@ -267,10 +267,10 @@ export default function PlanningScreen({ myId, gameState }: Props) {
                         <img className="loc-card__ally-full" src={allyImageSrc(ally.id)!} alt={ally.name} />
                       )}
                       <div className="loc-card__ally-stats">
-                        <span title="影響力">🏛 {ally.influence}</span>
-                        <span title="每回合獲得血液">🩸 +{ally.feedBlood}</span>
-                        {ally.drainBlood > 0 && <span title="汲取獲得血液">⚡ +{ally.drainBlood}血</span>}
-                        {ally.drainInfluence > 0 && <span title="汲取獲得影響力">⚡ +{ally.drainInfluence}影</span>}
+                        <span>🏛 影響力 +{ally.influence}（持有期間）</span>
+                        {ally.feedBlood > 0 && <span>🩸 每回合 +{ally.feedBlood} 血</span>}
+                        {ally.drainBlood > 0 && <span>⚡ 汲取得 +{ally.drainBlood} 血（失去此牌）</span>}
+                        {ally.drainInfluence > 0 && <span>⚡ 汲取得 +{ally.drainInfluence} 影響力（失去此牌）</span>}
                       </div>
                       {ally.effect_zh && <div className="loc-card__ally-effect">{ally.effect_zh}</div>}
                     </>
@@ -349,8 +349,10 @@ export default function PlanningScreen({ myId, gameState }: Props) {
                 <div className="ally-tile__type">{ally.type === 'vampire' ? '吸血鬼' : '人類'}</div>
                 <div className="ally-tile__name">{ally.name}</div>
                 <div className="ally-tile__stats">
-                  影響 {ally.influence}，餵食 +{ally.feedBlood}
-                  {ally.drainBlood > 0 && `，汲取 +${ally.drainBlood}血`}
+                  <span>🏛 影響力 +{ally.influence}（持有期間）</span>
+                  {ally.feedBlood > 0 && <span>🩸 每回合 +{ally.feedBlood} 血</span>}
+                  {ally.drainBlood > 0 && <span>⚡ 汲取得 +{ally.drainBlood} 血（失去此牌）</span>}
+                  {ally.drainInfluence > 0 && <span>⚡ 汲取得 +{ally.drainInfluence} 影響力（失去此牌）</span>}
                 </div>
                 {ally.effect_zh && <div className="ally-tile__effect">{ally.effect_zh}</div>}
                 {!ally.drained && !alreadyDone && (
