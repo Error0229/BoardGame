@@ -23,3 +23,7 @@ CONTEXT.md
 
 # ── Assets（卡牌圖片等大型二進位檔，用 assets.zip 存版控） ──
 assets/
+
+# ── Test artifacts ────────────────────────────
+client/test-results/
+client/playwright-report/
