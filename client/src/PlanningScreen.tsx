@@ -4,6 +4,9 @@ import socket from './socket'
 import CardImage from './CardImage'
 import { locationImageSrc } from './cardImages'
 import { CARD_DEFS, TYPE_LABEL_ZH } from './cardDefs'
+import { clanOf } from './clans'
+import WaitingPlayers from './WaitingPlayers'
+import PlayerSeats from './PlayerSeats'
 import './PlanningScreen.css'
 
 interface Props {
@@ -65,14 +68,14 @@ function DeployDialog({ card, locName, myBlood, isMine, onConfirm, onCancel }: D
           <div className="deploy-dialog__token-ctrl">
             <button onClick={() => setTokens(t => Math.max(0, t - 1))} disabled={tokens === 0}>−</button>
             <span className="deploy-dialog__token-val">{tokens}</span>
-            <button onClick={() => setTokens(t => Math.min(3, t + 1))} disabled={tokens >= 3 || myBlood < totalCost + 1}>+</button>
+            <button onClick={() => setTokens(t => t + 1)} disabled={myBlood < totalCost + 1}>+</button>
           </div>
           {tokens > 0 && <span className="deploy-dialog__cost">−{tokens} 血</span>}
         </div>
 
         <div className="deploy-dialog__total">
           消耗：<span className={canAfford ? '' : 'deploy-dialog__insufficient'}>{totalCost} 血</span>
-          　剩餘：{myBlood - totalCost}
+          ，剩餘：{myBlood - totalCost}
         </div>
 
         <div className="deploy-dialog__actions">
@@ -102,6 +105,8 @@ export default function PlanningScreen({ myId, gameState }: Props) {
   const [expandedAllies, setExpandedAllies] = useState<Set<string>>(new Set())
   const [slotPopup, setSlotPopup] = useState<{ cardId: string; ownerName: string } | null>(null)
   const [flashLocId, setFlashLocId] = useState<string | null>(null)
+  const [drainConfirm, setDrainConfirm] = useState<AllyCard | null>(null)
+  const [skipConfirm, setSkipConfirm] = useState(false)
 
   function selectCard(card: CardDef) {
     setSelectedCard(prev => prev?.id === card.id ? null : card)
@@ -129,14 +134,39 @@ export default function PlanningScreen({ myId, gameState }: Props) {
 
   function skip() {
     socket.emit('submitDeployment', { skip: true })
+    setSkipConfirm(false)
   }
 
-  function drainAlly(ally: AllyCard) {
-    socket.emit('drainAlly', ally.id)
+  function requestDrain(ally: AllyCard) {
+    // 汲取不可逆(同盟移除、影響力消失),一律先確認
+    setDrainConfirm(ally)
   }
+
+  function confirmDrain() {
+    if (!drainConfirm) return
+    socket.emit('drainAlly', drainConfirm.id)
+    setDrainConfirm(null)
+  }
+
+  // 固定座位順序(加入順序),整場不變 — 出牌區內的卡牌也依此排序
+  const seatOrder = Object.keys(gameState.players)
+  const doneIds = new Set(seatOrder.filter(pid => !waiting.includes(pid)))
 
   return (
     <div className="planning">
+      {/* 固定座位列:誰在出牌、輪序、每人資源 */}
+      <PlayerSeats
+        gameState={gameState}
+        myId={myId}
+        activeStatuses={
+          waiting.length > 0 && gameState.currentTurnPlayerId
+            ? { [gameState.currentTurnPlayerId]: '出牌中' }
+            : undefined
+        }
+        doneIds={doneIds}
+        showTurnOrder
+      />
+
       {/* Status bar */}
       <div className="planning__bar">
         <div className="planning__bar-item">
@@ -151,53 +181,23 @@ export default function PlanningScreen({ myId, gameState }: Props) {
           <span className="planning__bar-label">手牌</span>
           <span className="planning__bar-val">{hand.length} 張</span>
         </div>
-        <div className="planning__bar-item">
-          <span className="planning__bar-label">當前出牌</span>
-          <span className={`planning__bar-val ${isMyTurn && !alreadyDone ? 'planning__bar-val--myturn' : ''}`}>
-            {gameState.players[gameState.currentTurnPlayerId]?.name ?? '—'}
-          </span>
-        </div>
         {canDeploy && (
-          <button className="btn-ghost planning__skip-btn" onClick={skip}>
+          <button className="btn-ghost planning__skip-btn" onClick={() => setSkipConfirm(true)}>
             結束部署
           </button>
         )}
       </div>
 
-      {/* 出牌順序 */}
-      {gameState.playerOrder.length > 0 && (
-        <div className="planning__turn-order">
-          {gameState.playerOrder.map((pid, i) => {
-            const player = gameState.players[pid]
-            const isCurrentTurn = pid === gameState.currentTurnPlayerId
-            const isDone = !waiting.includes(pid)
-            return (
-              <span
-                key={pid}
-                className={[
-                  'turn-order__player',
-                  isCurrentTurn ? 'turn-order__player--active' : '',
-                  isDone ? 'turn-order__player--done' : '',
-                ].filter(Boolean).join(' ')}
-              >
-                {i > 0 && <span className="turn-order__arrow">→</span>}
-                {player?.name ?? pid}
-              </span>
-            )
-          })}
-        </div>
-      )}
-
       {alreadyDone ? (
         <div className="planning__waiting">
-          已完成部署，等待：{waiting.map(id => gameState.players[id]?.name ?? id).join('、')}
+          <WaitingPlayers gameState={gameState} myId={myId} doneLabel="已完成部署" />
         </div>
       ) : !isMyTurn ? (
         <div className="planning__waiting">
           等待 <strong>{gameState.players[gameState.currentTurnPlayerId]?.name ?? '...'}</strong> 出牌
         </div>
       ) : selectedCard ? (
-        <div className="planning__hint">選擇部署地點 ↓　（再次點擊手牌取消選擇）</div>
+        <div className="planning__hint">選擇部署地點 ↓ （再次點擊手牌取消選擇）</div>
       ) : (
         <div className="planning__hint">你的回合！點擊手牌選擇，再選擇地點部署</div>
       )}
@@ -206,8 +206,10 @@ export default function PlanningScreen({ myId, gameState }: Props) {
       <div className="planning__board">
         {gameState.locations.map(loc => {
           const slots = gameState.deployments[loc.id] ?? []
-          const mySlots = slots.filter(s => s.playerId === myId)
-          const otherSlots = slots.filter(s => s.playerId !== myId)
+          // 依固定座位順序排列,同一玩家的牌相鄰,歸屬一目了然
+          const sortedSlots = [...slots].sort(
+            (a, b) => seatOrder.indexOf(a.playerId) - seatOrder.indexOf(b.playerId)
+          )
           const ally = gameState.locationAllies[loc.id]
           const clickable = !!selectedCard && canDeploy
 
@@ -232,13 +234,24 @@ export default function PlanningScreen({ myId, gameState }: Props) {
               </div>
 
               <div className="loc-card__influence">
-                影響力 {loc.influence[gameState.round]?.[0] ?? '?'} / {loc.influence[gameState.round]?.[1] ?? '?'}
+                <span className="loc-card__inf-val">🏆 {loc.influence[gameState.round]?.[0] ?? '?'}</span>
+                <span className="loc-card__inf-sep">/</span>
+                <span className="loc-card__inf-val loc-card__inf-val--2nd">🥈 {loc.influence[gameState.round]?.[1] ?? '?'}</span>
+                <span className="loc-card__inf-label">影響力</span>
               </div>
 
               {ally && (
                 <div
                   className="loc-card__ally"
-                  onClick={e => { e.stopPropagation(); setExpandedAllies(prev => { const s = new Set(prev); s.has(loc.id) ? s.delete(loc.id) : s.add(loc.id); return s; }) }}
+                  onClick={e => {
+                    e.stopPropagation()
+                    setExpandedAllies(prev => {
+                      const next = new Set(prev)
+                      if (next.has(loc.id)) next.delete(loc.id)
+                      else next.add(loc.id)
+                      return next
+                    })
+                  }}
                 >
                   <div className="loc-card__ally-header">
                     <span className="loc-card__ally-type">{ally.type === 'vampire' ? '吸血鬼' : '人類'}</span>
@@ -260,32 +273,28 @@ export default function PlanningScreen({ myId, gameState }: Props) {
               )}
 
               <div className="loc-card__slots">
-                {mySlots.map((sl, i) => {
-                  const clan = me?.clan
-                  const canPeek = !!sl.cardId  // 自己的牌（含暗牌）都可點擊查看
+                {sortedSlots.map((sl, i) => {
+                  const isMine = sl.playerId === myId
+                  const owner = gameState.players[sl.playerId]
+                  const ownerClan = (owner?.clan ?? null) as ClanId | null
+                  const clanInfo = clanOf(ownerClan)
+                  // 自己的牌(含暗牌)都可查看;對手的只有亮牌可看
+                  const canPeek = isMine ? !!sl.cardId : (!sl.faceDown && !!sl.cardId)
+                  const showTokens = sl.bloodTokens > 0 && (isMine || !sl.bloodTokensHidden)
                   return (
                     <div
                       key={i}
-                      className={`loc-slot loc-slot--mine ${canPeek ? 'loc-slot--peekable' : ''}`}
-                      title={sl.faceDown && canPeek ? '暗牌（點擊查看）' : undefined}
-                      onClick={e => { e.stopPropagation(); if (canPeek) setSlotPopup({ cardId: sl.cardId!, ownerName: me?.name ?? '我' }) }}
+                      className={`loc-slot ${isMine ? 'loc-slot--mine' : 'loc-slot--other'} ${canPeek ? 'loc-slot--peekable' : ''}`}
+                      style={clanInfo ? { '--slot-clan': clanInfo.color } as React.CSSProperties : undefined}
+                      title={isMine && sl.faceDown && canPeek ? '暗牌（點擊查看）' : undefined}
+                      onClick={e => {
+                        e.stopPropagation()
+                        if (canPeek) setSlotPopup({ cardId: sl.cardId!, ownerName: owner?.name ?? (isMine ? '我' : '對手') })
+                      }}
                     >
-                      <CardImage cardId={sl.cardId ?? null} clan={clan} faceDown={sl.faceDown} className="loc-slot__img" />
-                      {sl.bloodTokens > 0 && <span className="loc-slot__tokens">+{sl.bloodTokens}💧</span>}
-                    </div>
-                  )
-                })}
-                {otherSlots.map((sl, i) => {
-                  const ownerClan = gameState.players[sl.playerId]?.clan as ClanId | null
-                  const canPeek = !sl.faceDown && !!sl.cardId
-                  return (
-                    <div
-                      key={i}
-                      className={`loc-slot loc-slot--other ${canPeek ? 'loc-slot--peekable' : ''}`}
-                      onClick={e => { e.stopPropagation(); if (canPeek) setSlotPopup({ cardId: sl.cardId!, ownerName: gameState.players[sl.playerId]?.name ?? '對手' }) }}
-                    >
-                      <CardImage cardId={sl.cardId ?? null} clan={ownerClan} faceDown={sl.faceDown || !sl.cardId} className="loc-slot__img" />
-                      {sl.bloodTokens > 0 && !sl.bloodTokensHidden && <span className="loc-slot__tokens">+{sl.bloodTokens}💧</span>}
+                      <CardImage cardId={sl.cardId ?? null} clan={ownerClan} faceDown={isMine ? sl.faceDown : (sl.faceDown || !sl.cardId)} className="loc-slot__img" />
+                      <span className="loc-slot__owner">{isMine ? '你' : (owner?.name ?? '?')}</span>
+                      {showTokens && <span className="loc-slot__tokens">+{sl.bloodTokens}💧</span>}
                     </div>
                   )
                 })}
@@ -331,13 +340,16 @@ export default function PlanningScreen({ myId, gameState }: Props) {
                 <div className="ally-tile__type">{ally.type === 'vampire' ? '吸血鬼' : '人類'}</div>
                 <div className="ally-tile__name">{ally.name}</div>
                 <div className="ally-tile__stats">
-                  影響 {ally.influence}　餵食 +{ally.feedBlood}
-                  {ally.drainBlood > 0 && `　汲取 +${ally.drainBlood}血`}
+                  影響 {ally.influence}，餵食 +{ally.feedBlood}
+                  {ally.drainBlood > 0 && `，汲取 +${ally.drainBlood}血`}
                 </div>
                 {ally.effect_zh && <div className="ally-tile__effect">{ally.effect_zh}</div>}
                 {!ally.drained && !alreadyDone && (
-                  <button className="btn-ghost ally-tile__drain-btn" onClick={() => drainAlly(ally)}>
-                    汲取
+                  <button
+                    className={`btn-ghost ally-tile__drain-btn ${ally.type === 'vampire' ? 'ally-tile__drain-btn--vampire' : ''}`}
+                    onClick={() => requestDrain(ally)}
+                  >
+                    {ally.type === 'vampire' ? '⚠ 汲取' : '汲取'}
                   </button>
                 )}
                 {ally.drained && <div className="ally-tile__drained-label">已汲取</div>}
@@ -367,6 +379,69 @@ export default function PlanningScreen({ myId, gameState }: Props) {
                 </div>
               )}
               <button className="btn-ghost slot-popup__close" onClick={() => setSlotPopup(null)}>關閉</button>
+            </div>
+          </div>
+        )
+      })()}
+
+      {skipConfirm && (
+        <div className="skip-confirm-overlay" onClick={() => setSkipConfirm(false)}>
+          <div className="skip-confirm" onClick={e => e.stopPropagation()}>
+            <div className="skip-confirm__title">確認結束部署？</div>
+            <div className="skip-confirm__body">
+              {hand.length > 0
+                ? `你還有 ${hand.length} 張手牌未部署，結束後本回合不能再出牌。`
+                : '確認結束本回合部署？'}
+            </div>
+            <div className="skip-confirm__actions">
+              <button className="btn-primary" onClick={skip}>確認結束</button>
+              <button className="btn-ghost" onClick={() => setSkipConfirm(false)}>繼續部署</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {drainConfirm && (() => {
+        const isVampire = drainConfirm.type === 'vampire'
+        const currentDiablerie = me?.diablerie ?? 0
+        const afterDiablerie = currentDiablerie + 1
+        const willEliminate = isVampire && afterDiablerie >= 3
+        return (
+          <div className="drain-confirm-overlay" onClick={() => setDrainConfirm(null)}>
+            <div className="drain-confirm" onClick={e => e.stopPropagation()}>
+              <div className="drain-confirm__title">
+                {isVampire ? '⚠ 汲取吸血鬼' : '汲取同盟'}
+              </div>
+              <div className="drain-confirm__card">{drainConfirm.name}</div>
+              <div className="drain-confirm__body">
+                <div className="drain-confirm__row">
+                  汲取獲得：
+                  {drainConfirm.drainBlood > 0 && <span className="drain-confirm__gain drain-confirm__gain--blood">+{drainConfirm.drainBlood} 血</span>}
+                  {drainConfirm.drainInfluence > 0 && <span className="drain-confirm__gain drain-confirm__gain--inf">+{drainConfirm.drainInfluence} 影響力</span>}
+                </div>
+                {isVampire && (
+                  <div className={`drain-confirm__penalty ${willEliminate ? 'drain-confirm__penalty--fatal' : ''}`}>
+                    業報代幣：{currentDiablerie} → <strong>{afterDiablerie}</strong> / 3
+                    {willEliminate
+                      ? ' 💀 第 3 枚！你將被淘汰出局！'
+                      : afterDiablerie === 2
+                        ? ' ⚠ 再一枚即被淘汰'
+                        : ''}
+                  </div>
+                )}
+                <div className="drain-confirm__note">
+                  汲取後此牌從同盟移除，其影響力（{drainConfirm.influence}）也一併消失，無法復原。
+                </div>
+              </div>
+              <div className="drain-confirm__actions">
+                <button
+                  className={`btn-primary ${willEliminate ? 'drain-confirm__fatal-btn' : ''}`}
+                  onClick={confirmDrain}
+                >
+                  {willEliminate ? '確認（我知道會出局）' : '確認汲取'}
+                </button>
+                <button className="btn-ghost" onClick={() => setDrainConfirm(null)}>取消</button>
+              </div>
             </div>
           </div>
         )

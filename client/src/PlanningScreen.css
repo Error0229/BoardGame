@@ -50,53 +50,6 @@
   font-size: 13px;
 }
 
-.planning__bar-val--myturn {
-  color: var(--blood-bright);
-  animation: pulse-text 1.2s ease-in-out infinite;
-}
-
-@keyframes pulse-text {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-.planning__turn-order {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-dim);
-  flex-wrap: wrap;
-}
-
-.turn-order__player {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  transition: all 0.2s;
-}
-
-.turn-order__player--active {
-  border-color: var(--blood-bright);
-  color: var(--blood-bright);
-  font-weight: 700;
-  background: rgba(200, 0, 0, 0.1);
-}
-
-.turn-order__player--done {
-  opacity: 0.4;
-  text-decoration: line-through;
-}
-
-.turn-order__arrow {
-  color: var(--text-dim);
-  font-size: 11px;
-  padding-right: 6px;
-}
-
 .planning__hint {
   font-size: 13px;
   color: var(--text-dim);
@@ -217,8 +170,29 @@
 }
 
 .loc-card__influence {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
   color: var(--text-dim);
+}
+
+.loc-card__inf-val {
+  font-weight: 600;
+  color: var(--gold);
+}
+
+.loc-card__inf-val--2nd {
+  color: #aaa;
+}
+
+.loc-card__inf-sep {
+  color: var(--border);
+}
+
+.loc-card__inf-label {
+  color: var(--text-dim);
+  font-size: 10px;
 }
 
 .loc-card__ally {
@@ -303,16 +277,33 @@
   overflow: hidden;
 }
 
+/* 卡牌歸屬:邊框 = 擁有者氏族色,下方掛名牌 */
 .loc-slot--mine {
-  background: rgba(139,0,0,0.2);
-  border: 1px solid var(--blood);
+  background: rgba(201, 162, 39, 0.08);
+  border: 1px solid var(--slot-clan, var(--blood));
+  box-shadow: 0 0 0 1px rgba(201, 162, 39, 0.35);
   color: #f0c0c0;
 }
 
 .loc-slot--other {
   background: var(--bg-3);
-  border: 1px solid var(--border);
+  border: 1px solid var(--slot-clan, var(--border));
   color: var(--text-dim);
+}
+
+.loc-slot__owner {
+  max-width: 100%;
+  padding: 0 3px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--slot-clan, var(--text-dim));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.loc-slot--mine .loc-slot__owner {
+  color: var(--gold);
 }
 
 .loc-slot__img {
@@ -555,6 +546,11 @@
   border-color: var(--gold-dim);
 }
 
+.ally-tile__drain-btn--vampire {
+  color: #c07aff;
+  border-color: rgba(192,122,255,0.4);
+}
+
 .ally-tile__effect {
   font-size: 11px;
   color: var(--text-dim);
@@ -715,4 +711,139 @@
 .deploy-dialog__actions {
   display: flex;
   gap: 10px;
+}
+
+/* ── Skip Confirm Dialog ── */
+
+.skip-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 600;
+}
+
+.skip-confirm {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 22px 24px;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+}
+
+.skip-confirm__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.skip-confirm__body {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.skip-confirm__actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* ── Drain Confirm Dialog ── */
+
+.drain-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 600;
+}
+
+.drain-confirm {
+  background: var(--bg-2);
+  border: 1px solid rgba(192,122,255,0.4);
+  border-radius: 12px;
+  padding: 22px 24px;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+}
+
+.drain-confirm__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #c07aff;
+}
+
+.drain-confirm__card {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.drain-confirm__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.drain-confirm__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.drain-confirm__gain {
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.drain-confirm__gain--blood { background: rgba(139,0,0,0.2); color: var(--blood-bright); }
+.drain-confirm__gain--inf   { background: rgba(201,162,39,0.15); color: var(--gold); }
+
+.drain-confirm__penalty {
+  font-size: 13px;
+  color: var(--text-dim);
+  background: rgba(192,122,255,0.08);
+  border: 1px solid rgba(192,122,255,0.25);
+  border-radius: 6px;
+  padding: 8px 10px;
+  line-height: 1.5;
+}
+
+.drain-confirm__penalty--fatal {
+  background: rgba(139,0,0,0.15);
+  border-color: rgba(139,0,0,0.5);
+  color: var(--blood-bright);
+  font-weight: 600;
+}
+
+.drain-confirm__note {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.drain-confirm__actions {
+  display: flex;
+  gap: 10px;
+  flex-direction: column;
+}
+
+.drain-confirm__fatal-btn {
+  background: var(--blood) !important;
+  border-color: var(--blood-bright) !important;
 }

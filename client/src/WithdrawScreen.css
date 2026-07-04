@@ -18,8 +18,10 @@
 }
 
 .withdraw__title {
-  font-size: 22px;
+  font-family: var(--font-display);
+  font-size: 24px;
   font-weight: 700;
+  letter-spacing: 3px;
   color: var(--text-h);
 }
 
@@ -27,6 +29,13 @@
   font-size: 13px;
   color: var(--text-dim);
   text-align: center;
+  line-height: 1.7;
+}
+
+.withdraw__rule {
+  font-weight: 700;
+  color: var(--text-h);
+  padding: 0 2px;
 }
 
 .withdraw__progress {
@@ -234,11 +243,25 @@
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-dim);
-  padding: 6px 10px;
+  padding: 8px 10px;
   font: inherit;
   font-size: 13px;
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.wd-btn__label {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.wd-btn__sub {
+  font-size: 10px;
+  opacity: 0.75;
 }
 .wd-btn:hover {
   color: var(--text-h);

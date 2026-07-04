@@ -4,6 +4,8 @@ import socket from './socket'
 import CardImage from './CardImage'
 import { CARD_DEFS, TYPE_LABEL_ZH } from './cardDefs'
 import { cardName } from './cardNames'
+import PlayerSeats from './PlayerSeats'
+import LocationStrip from './LocationStrip'
 import './WithdrawScreen.css'
 
 interface Props {
@@ -56,8 +58,20 @@ export default function WithdrawScreen({ myId, gameState }: Props) {
   const mySlots = slots.filter(sl => sl.playerId === myId)
   const otherSlots = slots.filter(sl => sl.playerId !== myId)
 
+  const seatStatuses = Object.fromEntries(waiting.map(id => [id, '決策中']))
+  const doneIds = new Set(Object.keys(gameState.players).filter(id => !waiting.includes(id)))
+
   return (
     <div className="withdraw">
+
+      {/* 固定座位列 + 常駐戰場地圖:誰在決策、結算進度 */}
+      <PlayerSeats
+        gameState={gameState}
+        myId={myId}
+        activeStatuses={seatStatuses}
+        doneIds={doneIds}
+      />
+      <LocationStrip gameState={gameState} myId={myId} currentLocId={currentLoc.id} />
 
       {/* 卡牌效果 popup */}
       {popup && (() => {
@@ -83,7 +97,14 @@ export default function WithdrawScreen({ myId, gameState }: Props) {
       {/* 標題 + 狀態列 */}
       <div className="withdraw__header">
         <div className="withdraw__title">撤退階段</div>
-        <div className="withdraw__subtitle">選擇是否從此地點撤退。非王子之地撤退：血液取回，牌翻開移往王子之地。王子之地撤退：牌與血液全部取回。</div>
+        <div className="withdraw__subtitle">
+          選擇是否從此地點撤退。
+          <span className="withdraw__rule">留守</span>：繼續參與本地點結算，但血液代幣無法取回。
+          <span className="withdraw__rule">撤退</span>：取回所有部署血液代幣，
+          {currentLoc.isPrinces
+            ? '牌也一併取回，直接跳出不參與結算。'
+            : '牌翻成正面移至「王子的避難所」繼續使用（下回合可在王子之地參與競爭）。'}
+        </div>
         <div className="withdraw__progress">地點 {finishedCount + 1} / {totalActiveLocs}</div>
         {waiting.length === 0 ? (
           <div className="withdraw__status withdraw__status--reveal">
@@ -187,13 +208,23 @@ export default function WithdrawScreen({ myId, gameState }: Props) {
               className={`wd-btn ${choice === false ? 'wd-btn--stay' : ''}`}
               onClick={() => setChoice(false)}
             >
-              留守
+              <span className="wd-btn__label">留守</span>
+              <span className="wd-btn__sub">繼續參與結算</span>
             </button>
             <button
               className={`wd-btn ${choice === true ? 'wd-btn--out' : ''}`}
               onClick={() => setChoice(true)}
             >
-              {currentLoc.isPrinces ? '撤退（取回一切）' : '撤退'}
+              <span className="wd-btn__label">撤退</span>
+              <span className="wd-btn__sub">
+                {(() => {
+                  const tokens = mySlots.reduce((s, sl) => s + sl.bloodTokens, 0)
+                  if (currentLoc.isPrinces) {
+                    return tokens > 0 ? `取回 ${tokens} 血液 + 牌` : '取回牌與血液'
+                  }
+                  return tokens > 0 ? `取回 ${tokens} 血液，牌移至王子之地` : '取回血液，牌移至王子之地'
+                })()}
+              </span>
             </button>
           </div>
         )}

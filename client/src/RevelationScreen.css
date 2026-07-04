@@ -21,8 +21,10 @@
 }
 
 .revelation__title {
-  font-size: 24px;
+  font-family: var(--font-display);
+  font-size: 26px;
   font-weight: 700;
+  letter-spacing: 3px;
   color: var(--gold);
 }
 
@@ -141,6 +143,22 @@
   font-style: italic;
 }
 
+.revelation__step-hint--waiting {
+  color: var(--text-dim);
+}
+
+@keyframes choice-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+.revelation__step-hint--action {
+  color: var(--blood-bright);
+  font-style: normal;
+  font-weight: 700;
+  animation: choice-pulse 1s ease-in-out infinite;
+}
+
 .revelation__progress-bar {
   flex: 1;
   height: 3px;
@@ -159,6 +177,135 @@
   background: var(--blood);
   border-radius: 2px;
   animation: step-progress 3s linear forwards;
+}
+
+/* Server-synced active effect */
+
+.active-effect {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 14px;
+  min-height: 112px;
+  padding: 12px;
+  border: 1px solid rgba(201,162,39,0.32);
+  border-left: 4px solid var(--gold);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(201,162,39,0.12), rgba(18,18,24,0.92));
+  box-shadow: 0 12px 28px rgba(0,0,0,0.28);
+}
+
+.active-effect--idle {
+  grid-template-columns: 1fr;
+  min-height: auto;
+  border-left-color: var(--border);
+  background: rgba(255,255,255,0.03);
+}
+
+.active-effect--prepare { border-left-color: #4caf50; }
+.active-effect--conflict { border-left-color: var(--blood-bright); }
+.active-effect--aftermath { border-left-color: #7e57c2; }
+.active-effect--complete { border-left-color: var(--gold); }
+
+.active-effect__media {
+  width: 82px;
+  height: 104px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.active-effect__card-img {
+  width: 72px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 6px;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.45);
+}
+
+.active-effect__card-placeholder {
+  width: 72px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--gold);
+  border: 1px solid rgba(201,162,39,0.36);
+  border-radius: 6px;
+  background: rgba(0,0,0,0.24);
+}
+
+.active-effect__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.active-effect__kicker,
+.active-effect__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.active-effect__meta span {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.28);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.active-effect__title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-h);
+  line-height: 1.15;
+}
+
+.active-effect__text {
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.active-effect__actors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.active-effect__delta {
+  font-weight: 800;
+}
+
+.active-effect__delta--blood { color: var(--blood-bright); }
+.active-effect__delta--influence { color: var(--gold); }
+.active-effect__delta--power { color: #64b5f6; }
+
+.active-effect__progress {
+  height: 5px;
+  margin-top: auto;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+
+.active-effect__progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--blood), var(--gold));
+  transition: width 0.3s ease;
 }
 
 /* ── Location badge in header ── */
@@ -199,6 +346,32 @@
   flex-direction: column;
   gap: 10px;
   min-width: 0;
+}
+
+.revelation__pending-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.revelation__pending-wait {
+  padding: 12px 14px;
+  border: 1px solid rgba(201,162,39,0.28);
+  border-radius: 8px;
+  background: rgba(201,162,39,0.08);
+}
+
+.revelation__pending-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--gold);
+  margin-bottom: 4px;
+}
+
+.revelation__pending-text {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.45;
 }
 
 /* ── Location history chips ── */
@@ -417,6 +590,16 @@
   opacity: 0.4;
 }
 
+.result-slot--current-effect {
+  border-color: var(--blood-bright) !important;
+  background: rgba(139,0,0,0.18) !important;
+  box-shadow: 0 0 0 2px rgba(220,60,60,0.3), 0 0 20px rgba(220,60,60,0.28);
+}
+
+.result-slot--current-effect .result-slot__card {
+  color: var(--blood-bright);
+}
+
 .result-slot__img {
   width: 40px;
   aspect-ratio: 2 / 3;
@@ -433,12 +616,45 @@
   min-width: 0;
 }
 
-.result-slot__owner {
-  color: var(--text-dim);
+/* 依玩家分組的部署牌:氏族色左框 + 組頭名牌 */
+.result-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border-left: 3px solid var(--group-clan, var(--border));
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.result-group--mine {
+  background: rgba(201, 162, 39, 0.05);
+}
+
+.result-group__owner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.result-group__clan {
   font-size: 10px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid var(--group-clan, var(--border));
+  color: var(--group-clan, var(--text-dim));
+}
+
+.result-group__name {
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.result-group--mine .result-group__name {
+  color: var(--gold);
 }
 
 .result-slot__card-row {
@@ -532,12 +748,74 @@
   margin-bottom: 2px;
 }
 
+/* ── StepEventRow ── */
+
+.step-event-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  flex-wrap: wrap;
+}
+
+.step-event-row__card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px 1px 2px;
+  flex-shrink: 0;
+}
+
+.step-event-row__card-img {
+  width: 18px !important;
+  height: 18px !important;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.step-event-row__card-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-h);
+  white-space: nowrap;
+}
+
+.step-event-row__text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* delta badge */
+.event-delta {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0 5px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  letter-spacing: 0.3px;
+}
+.event-delta.delta--blood     { background: rgba(139,0,0,0.25); color: var(--blood-bright); border: 1px solid rgba(139,0,0,0.4); }
+.event-delta.delta--influence { background: rgba(201,162,39,0.2); color: var(--gold); border: 1px solid rgba(201,162,39,0.4); }
+.event-delta.delta--power     { background: rgba(100,160,240,0.15); color: #9ecdf7; border: 1px solid rgba(100,160,240,0.3); }
+
+/* 事件依類型上色（繼承給 .result-card__event-line 和 .revelation__event-line） */
+.step-event-row.event--blood     .step-event-row__text { color: var(--blood-bright); }
+.step-event-row.event--influence .step-event-row__text { color: var(--gold); }
+.step-event-row.event--withdraw  .step-event-row__text { color: #888; font-style: italic; }
+.step-event-row.event--power     .step-event-row__text { color: #9ecdf7; }
+
 .result-card__event-line {
   font-size: 12px;
   color: var(--text-dim);
   line-height: 1.5;
 }
-/* 事件依類型上色 */
+/* 舊的純文字事件上色（保留相容） */
 .result-card__event-line.event--blood     { color: var(--blood-bright); }
 .result-card__event-line.event--influence { color: var(--gold); }
 .result-card__event-line.event--withdraw  { color: #888; font-style: italic; }
@@ -568,7 +846,8 @@
 .result-card__rank  { font-size: 11px; color: var(--text-dim); min-width: 20px; }
 .result-card__pname { flex: 1; color: var(--text-h); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .result-card__score { font-size: 12px; color: var(--text-dim); }
-.result-card__inf   { color: var(--gold); font-size: 12px; font-weight: 700; }
+.result-card__inf          { color: var(--gold); font-size: 12px; font-weight: 700; }
+.result-card__inf--zero    { color: var(--text-dim); font-weight: 400; }
 .result-card__medal { font-size: 14px; }
 
 /* ── Sidebar ── */
@@ -612,42 +891,13 @@
 .revelation__event-line.event--withdraw  { color: #888; font-style: italic; }
 .revelation__event-line.event--power     { color: #9ecdf7; }
 
+/* sidebar 的 StepEventRow 稍微縮小 card badge */
+.revelation__event-log .step-event-row__card-img {
+  width: 16px !important;
+  height: 16px !important;
+}
+
 /* 積分 */
-.revelation__standings {
-  background: var(--bg-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.revelation__standings-title {
-  padding: 8px 14px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: var(--text-dim);
-  border-bottom: 1px solid var(--border);
-}
-
-.revelation__standing-row {
-  display: grid;
-  grid-template-columns: 24px 1fr 48px 48px;
-  align-items: center;
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-  gap: 6px;
-}
-
-.revelation__standing-row:last-child { border-bottom: none; }
-.revelation__standing-row--me { background: rgba(201,162,39,0.05); }
-
-.revelation__standing-rank  { color: var(--text-dim); font-size: 11px; }
-.revelation__standing-name  { color: var(--text-h); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; flex-direction: column; gap: 1px; }
-.revelation__standing-clan  { font-size: 9px; font-weight: 700; letter-spacing: 0.5px; opacity: 0.9; }
-.revelation__standing-inf   { color: var(--gold); text-align: right; font-weight: 700; font-size: 12px; }
-.revelation__standing-blood { color: var(--blood-bright); text-align: right; font-size: 12px; }
-
 /* ── Confirm area ── */
 
 .revelation__confirm-area {
@@ -936,3 +1186,229 @@
   font-size: 11px;
   color: #6ab0f5;
 }
+
+/* ── Phase 1: 加速演出按鈕 ── */
+
+.revelation__skip-btn {
+  margin-left: auto;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--bg-3);
+  border: 1px solid var(--gold-dim);
+  border-radius: 14px;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+.revelation__skip-btn:hover:not(:disabled) {
+  border-color: var(--gold);
+  background: rgba(201, 162, 39, 0.1);
+}
+
+.revelation__skip-btn--voted {
+  opacity: 0.7;
+  border-color: var(--gold);
+}
+
+/* ── 已發生事件時間軸 ── */
+
+.revelation__timeline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  animation: timeline-in 0.3s ease;
+}
+
+@keyframes timeline-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.revelation__timeline-step {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 8px;
+  margin-top: 4px;
+  letter-spacing: 1px;
+}
+
+.revelation__timeline-step--prepare   { background: rgba(107,76,154,0.25); color: #c9a8f0; }
+.revelation__timeline-step--conflict  { background: rgba(139,0,0,0.3);     color: var(--blood-bright); }
+.revelation__timeline-step--aftermath { background: rgba(122,74,0,0.25);   color: #e8a030; }
+.revelation__timeline-step--complete  { background: rgba(201,162,39,0.2);  color: var(--gold); }
+.revelation__timeline-step--reveal,
+.revelation__timeline-step--withdraw  { background: var(--bg-3); color: var(--text-dim); }
+
+/* ── Phase 0: 誰在選擇 ── */
+
+.revelation__choosers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.revelation__chooser-row {
+  font-size: 13px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.revelation__chooser-name {
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.revelation__chooser-card {
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.revelation__chooser-loc {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* ── Phase 3: 翻牌動畫 ── */
+
+@keyframes card-flip-in {
+  0%   { transform: perspective(600px) rotateY(90deg); filter: brightness(0.4); }
+  100% { transform: perspective(600px) rotateY(0deg);  filter: brightness(1); }
+}
+
+.result-slot__img--flip {
+  animation: card-flip-in 0.5s ease-out both;
+  backface-visibility: hidden;
+}
+
+/* ── Phase 4: 回合結束摘要 ── */
+
+.round-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.round-summary__section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+}
+
+.round-summary__locs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.round-summary__loc-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.round-summary__loc-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  text-align: left;
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+
+.round-summary__loc-row:hover {
+  border-color: var(--gold-dim);
+}
+
+.round-summary__loc-row--me {
+  border-color: rgba(201, 162, 39, 0.45);
+  background: rgba(201, 162, 39, 0.05);
+}
+
+.round-summary__loc-name {
+  font-weight: 700;
+  color: var(--text-h);
+  min-width: 110px;
+}
+
+.round-summary__winner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.round-summary__inf {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.round-summary__tie {
+  color: var(--text-dim);
+}
+
+.round-summary__expand {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.round-summary__standings {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.round-summary__standing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.round-summary__standing:last-child { border-bottom: none; }
+
+.round-summary__standing--me {
+  background: rgba(201, 162, 39, 0.05);
+}
+
+.round-summary__rank {
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 22px;
+}
+
+.round-summary__clan {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid currentColor;
+}
+
+.round-summary__pname {
+  font-weight: 600;
+  color: var(--text-h);
+  flex: 1;
+}
+
+.round-summary__pinf   { color: var(--gold); font-weight: 700; }
+.round-summary__pblood { color: var(--blood-bright); }
