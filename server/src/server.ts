@@ -582,8 +582,13 @@ io.on('connection', (socket: Socket) => {
   });
 });
 
-const PORT = process.env.PORT ?? 3456;
-httpServer.listen(PORT, () => {
+// Ensure PORT is a number to satisfy Node's listen overload typing.
+const PORT = Number(process.env.PORT ?? 3456);
+// Bind the HTTP server to localhost by default for safety; use a reverse
+// proxy (Nginx) to expose to the public internet. This prevents the node
+// process from directly listening on all interfaces.
+const HOST = process.env.HOST ?? '127.0.0.1';
+httpServer.listen(PORT, HOST, () => {
   console.log(`\n🩸 Kindred: Blood & Betrayal`);
-  console.log(`   http://localhost:${PORT}\n`);
+  console.log(`   http://${HOST}:${PORT}\n`);
 });

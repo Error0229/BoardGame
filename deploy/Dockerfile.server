@@ -1,0 +1,26 @@
+FROM node:18-alpine AS build
+WORKDIR /app
+
+# Copy package files and install (root workspace uses workspaces)
+COPY package.json package-lock.json ./
+COPY server/package.json server/package-lock.json ./server/
+COPY client/package.json client/package-lock.json ./client/
+COPY shared/package.json shared/package-lock.json ./shared/
+
+RUN npm ci --production=false
+
+# Copy full repo and build
+COPY . ./
+RUN npm run build
+
+FROM node:18-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3456
+
+# Copy built server
+COPY --from=build /app/server/dist ./server/dist
+COPY --from=build /app/assets ./assets
+
+EXPOSE 3456
+CMD ["node", "server/dist/server.js"]

@@ -1,0 +1,19 @@
+[Unit]
+Description=Kindred server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/your/repo
+# Recommended environment variables
+Environment=PORT=3456
+Environment=NODE_ENV=production
+Environment=DEBUG_GAME=0
+ExecStart=/usr/bin/node /path/to/your/repo/server/dist/server.js
+Restart=on-failure
+RestartSec=5
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target
