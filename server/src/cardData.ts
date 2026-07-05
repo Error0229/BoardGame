@@ -878,11 +878,11 @@ export const ALLY_POOL: AllyCard[] = [
   { id: 'AL24', name: 'Francis Bennet',     type: 'human',   influence: 3, feedBlood: 1, drainBlood: 5, drainInfluence: 1, effect_zh: null },
   { id: 'AL21', name: 'Tamara Bodnar',      type: 'human',   influence: 5, feedBlood: 0, drainBlood: 1, drainInfluence: 3, effect_zh: null },
   { id: 'AL26', name: 'Julie Munoz',        type: 'human',   influence: 3, feedBlood: 0, drainBlood: 3, drainInfluence: 1, effect_zh: '若遊戲結束時此牌是你唯一的人類盟友，你獲得 +2 影響力。' },
-  { id: 'AL1G', name: 'Ed Crawford',        type: 'human',   influence: 3, feedBlood: 0, drainBlood: 2, drainInfluence: 2, effect_zh: null },
+  { id: 'AL1G', name: 'Ed Crawford',        type: 'human',   influence: 3, feedBlood: 0, drainBlood: 4, drainInfluence: 2, effect_zh: null },
   { id: 'AL20', name: 'Dr. Fragonard',      type: 'human',   influence: 4, feedBlood: 1, drainBlood: 2, drainInfluence: 2, effect_zh: null },
   { id: 'AL28', name: 'Ryan Ramos',         type: 'human',   influence: 4, feedBlood: 4, drainBlood: 3, drainInfluence: 1, effect_zh: '每當你打出面朝下的牌時，你必須額外消耗 +1 血液。' },
-  { id: 'AL17', name: 'Maja Wysocki',       type: 'human',   influence: 3, feedBlood: 2, drainBlood: 1, drainInfluence: 1, effect_zh: null },
-  { id: 'AL23', name: 'Tom Kimber',         type: 'human',   influence: 4, feedBlood: 0, drainBlood: 2, drainInfluence: 2, effect_zh: null },
+  { id: 'AL17', name: 'Maja Wysocki',       type: 'human',   influence: 3, feedBlood: 2, drainBlood: 2, drainInfluence: 1, effect_zh: null },
+  { id: 'AL23', name: 'Tom Kimber',         type: 'human',   influence: 4, feedBlood: 0, drainBlood: 5, drainInfluence: 2, effect_zh: null },
   // ── Vampire ────────────────────────────────────────────────────
   { id: 'AL04', name: 'Wauneka',            type: 'vampire', influence: 3, feedBlood: 0, drainBlood: 3, drainInfluence: 1, effect_zh: '獲得此盟友時，從牌堆抽取 1 張受害者牌並加入你的同盟區。' },
   { id: 'AL15', name: 'Mr. Damp',           type: 'vampire', influence: 3, feedBlood: 0, drainBlood: 3, drainInfluence: 1, effect_zh: '當你迫使對手陷入狂怒時，獲得 2 點血液。' },
@@ -898,7 +898,7 @@ export const ALLY_POOL: AllyCard[] = [
   { id: 'AL02', name: 'Sgt. McTavish',      type: 'vampire', influence: 3, feedBlood: 0, drainBlood: 3, drainInfluence: 1, effect_zh: '獲得此盟友時，從每位對手竊取 2 點血液。' },
   { id: 'AL01', name: 'Anita Wainwright',   type: 'vampire', influence: 3, feedBlood: 0, drainBlood: 3, drainInfluence: 1, effect_zh: '獲得此盟友時，獲得 3 點血液。' },
   { id: 'AL12', name: 'Talley',             type: 'vampire', influence: 2, feedBlood: -1, drainBlood: 3, drainInfluence: 0, effect_zh: '當你迫使對手陷入狂怒時，額外獲得 +1 影響力。' },
-  { id: 'AL10', name: 'Bronwyn',            type: 'vampire', influence: 5, feedBlood: 1, drainBlood: 3, drainInfluence: 1, effect_zh: null },
+  { id: 'AL10', name: 'Bronwyn',            type: 'vampire', influence: 5, feedBlood: 1, drainBlood: 3, drainInfluence: 3, effect_zh: null },
 ];
 
 // ─── 受害者牌池 ──────────────────────────────
