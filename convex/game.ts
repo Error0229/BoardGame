@@ -194,7 +194,9 @@ async function finishPlaybackInner(
   if (engine.state.pendingChoices.length > 0) {
     engine.state.phase = 'REVELATION';
     engine.state.activeEffect = null;
-    await persist(ctx, room, engine, { skipVotes: [], ...extra });
+    // 演出期間搶先按下的確認票必須作廢：否則最後一票會在選擇未回應時
+    // 湊滿 advanceReady，把未答的選擇帶進下一地點的 WITHDRAW（軟鎖）。
+    await persist(ctx, room, engine, { advanceReady: [], skipVotes: [], ...extra });
     return;
   }
   // finishReveal：等待全員確認
@@ -242,6 +244,8 @@ async function checkAdvanceReady(
   room: RoomDoc,
   engine: GameEngine,
 ): Promise<void> {
+  // 防禦：選擇未回應時絕不推進地點，否則殘留選擇會污染下一階段的 waitingFor
+  if (engine.state.pendingChoices.length > 0) return;
   if (engine.state.phase === 'REVELATION') {
     if (engine.hasMoreLocations()) {
       engine.advanceToNextLocation();
@@ -470,6 +474,8 @@ export const readyAdvance = mutation({
   handler: async (ctx, args) => {
     const { room, engine } = await authPlayer(ctx, args);
     if (!['REVELATION', 'ROUND_END'].includes(engine.state.phase)) return null;
+    // 有效果選擇未回應時不收確認票（對齊舊 server：wait-set 尚未建立時忽略投票）
+    if (engine.state.pendingChoices.length > 0) return null;
     const advanceReady = room.advanceReady.includes(args.playerId)
       ? room.advanceReady
       : [...room.advanceReady, args.playerId];
@@ -490,6 +496,15 @@ export const skipEffects = mutation({
   args: authArgs,
   handler: async (ctx, args) => {
     const { room, engine } = await authPlayer(ctx, args);
+    // 僅在演出真正進行中才有意義（對齊舊 server：無 playback 時 finish() 是 no-op）。
+    // 否則在揭牌/選擇等待期全票會直接跳過結算本身，留下未解的狀態。
+    if (
+      engine.state.phase !== 'REVELATION' ||
+      engine.state.activeEffect === null ||
+      engine.state.activeEffect.step === 'reveal' ||
+      engine.state.pendingChoices.length > 0
+    )
+      return null;
     const votes = room.skipVotes.includes(args.playerId)
       ? room.skipVotes
       : [...room.skipVotes, args.playerId];
