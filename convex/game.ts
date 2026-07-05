@@ -56,11 +56,11 @@ export const state = query({
     // 房主身分存在 rooms 文件（引擎 state 不認識），注入投影供大廳判定房主
     projection.hostId = room.hostId;
 
-    // 原 broadcast() 的後處理：REVELATION/ROUND_END 時 waitingFor = 尚未確認者
-    if (
-      room.advanceReady.length > 0 &&
-      ['REVELATION', 'ROUND_END'].includes(projection.phase)
-    ) {
+    // 原 broadcast() 的後處理：確認等待期 waitingFor = 尚未確認者。
+    // 舊 server 以「wait-set 是否存在」判定等待期（空集合也算等待中）；
+    // 這裡不能用 advanceReady.length > 0 —— 全員撤退後 isReady 皆 true，
+    // 引擎 waitingFor 為空、按鈕不顯示、沒人能投出第一票 → 死鎖。
+    if (awaitingConfirm(engine)) {
       const ready = new Set(room.advanceReady);
       projection.waitingFor = Object.keys(engine.state.players).filter(
         (id) => !ready.has(id),
@@ -135,6 +135,23 @@ function timelineEffect(
 // ─── 編排函式（原 server.ts） ──────────────────────────────
 
 /** 相位自動推進；一律持久化本次動作造成的 state 變化。 */
+/**
+ * 是否處於「等待全員確認」狀態（= 舊 server 的 advanceReady wait-set 存在）。
+ * REVELATION：本地點已結算、演出播完、無未回應選擇；ROUND_END：一律等待。
+ * 唯有此狀態收確認票 / 覆寫 waitingFor —— 揭牌空窗與演出期間的票一律作廢，
+ * 否則會在結算前推進地點（跳過結算）或湊票帶著未答選擇前進（軟鎖）。
+ */
+function awaitingConfirm(engine: GameEngine): boolean {
+  const s = engine.state;
+  if (s.pendingChoices.length > 0) return false;
+  if (s.phase === 'ROUND_END') return true;
+  return (
+    s.phase === 'REVELATION' &&
+    s.currentLocResolved &&
+    s.activeEffect === null
+  );
+}
+
 async function tryAdvance(
   ctx: any,
   room: RoomDoc,
@@ -473,9 +490,8 @@ export const readyAdvance = mutation({
   args: authArgs,
   handler: async (ctx, args) => {
     const { room, engine } = await authPlayer(ctx, args);
-    if (!['REVELATION', 'ROUND_END'].includes(engine.state.phase)) return null;
-    // 有效果選擇未回應時不收確認票（對齊舊 server：wait-set 尚未建立時忽略投票）
-    if (engine.state.pendingChoices.length > 0) return null;
+    // 僅在確認等待期收票（對齊舊 server：wait-set 不存在時忽略投票）
+    if (!awaitingConfirm(engine)) return null;
     const advanceReady = room.advanceReady.includes(args.playerId)
       ? room.advanceReady
       : [...room.advanceReady, args.playerId];
